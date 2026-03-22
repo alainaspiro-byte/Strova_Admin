@@ -1,0 +1,262 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { Subscription, SubscriptionStatus, Plan } from '@/lib/types'
+import { StatusBadge, PlanBadge, formatDate, daysUntil } from './Badges'
+import { RowActions } from './RowActions'
+import { PLAN_LABELS } from '@/lib/data'
+
+type Tab = 'all' | SubscriptionStatus
+type PlanFilter = 'all' | Plan
+type ExpirationFilter = 'all' | 'expiring-soon' | 'expired'
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'all',       label: 'Todas' },
+  { key: 'pending',   label: 'Pendientes' },
+  { key: 'active',    label: 'Activas' },
+  { key: 'expired',   label: 'Vencidas' },
+  { key: 'cancelled', label: 'Canceladas' },
+]
+
+const PLAN_FILTERS: { key: PlanFilter; label: string }[] = [
+  { key: 'all', label: 'Todos los planes' },
+  { key: 'basic', label: 'Básico' },
+  { key: 'pro', label: 'Pro' },
+  { key: 'enterprise', label: 'Empresarial' },
+]
+
+const EXPIRATION_FILTERS: { key: ExpirationFilter; label: string }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'expiring-soon', label: 'Vencen pronto' },
+  { key: 'expired', label: 'Vencidos' },
+]
+
+export function SubscriptionsTable({
+  initial,
+  onDataChange,
+}: {
+  initial: Subscription[]
+  onDataChange?: (data: Subscription[]) => void
+}) {
+  const [data, setData] = useState(initial)
+  const [tab, setTab] = useState<Tab>('all')
+  const [planFilter, setPlanFilter] = useState<PlanFilter>('all')
+  const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>('all')
+  const [search, setSearch] = useState('')
+
+  function handleChange(
+    id: string,
+    status: Subscription['status'],
+    paymentMethod?: Subscription['paymentMethod']
+  ) {
+    setData((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id !== id) return s
+        const now = new Date().toISOString()
+        const exp = new Date(Date.now() + 30 * 86400000).toISOString()
+        return {
+          ...s,
+          status,
+          ...(paymentMethod !== undefined && { paymentMethod }),
+          ...(status === 'active' && { startsAt: now, expiresAt: exp }),
+        }
+      })
+      onDataChange?.(updated)
+      return updated
+    })
+  }
+
+  const counts = useMemo(() => ({
+    all: data.length,
+    pending:   data.filter((s) => s.status === 'pending').length,
+    active:    data.filter((s) => s.status === 'active').length,
+    expired:   data.filter((s) => s.status === 'expired').length,
+    cancelled: data.filter((s) => s.status === 'cancelled').length,
+  }), [data])
+
+  const filtered = useMemo(() =>
+    data.filter((s) => {
+      if (tab !== 'all' && s.status !== tab) return false
+      if (planFilter !== 'all' && s.plan !== planFilter) return false
+      if (expirationFilter !== 'all') {
+        const days = daysUntil(s.expiresAt)
+        if (expirationFilter === 'expiring-soon' && (days === null || days > 7 || days < 0)) return false
+        if (expirationFilter === 'expired' && (days === null || days >= 0)) return false
+      }
+      if (search && !s.businessName.toLowerCase().includes(search.toLowerCase()) &&
+          !s.contactEmail.toLowerCase().includes(search.toLowerCase())) return false
+      return true
+    }),
+  [data, tab, planFilter, expirationFilter, search])
+
+  return (
+    <div className="bg-[#111827] rounded-xl border border-white/[0.06] overflow-hidden">
+      {/* Toolbar */}
+      <div className="px-4 py-3 border-b border-white/[0.06] space-y-3">
+        {/* Tabs */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex gap-0.5">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  tab === t.key
+                    ? 'bg-white/10 text-white'
+                    : 'text-white/30 hover:text-white/60 hover:bg-white/[0.04]'
+                }`}
+              >
+                {t.label}
+                <span className={`ml-1.5 tabular-nums ${tab === t.key ? 'text-white/40' : 'text-white/20'}`}>
+                  {counts[t.key]}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="relative">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Buscar negocio o correo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 pr-3 py-1.5 text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/70 placeholder-white/20 outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 w-52 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs text-white/30">Filtros:</span>
+          <select
+            value={planFilter}
+            onChange={(e) => setPlanFilter(e.target.value as PlanFilter)}
+            className="px-3 py-1.5 text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/70 outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors cursor-pointer"
+          >
+            {PLAN_FILTERS.map((f) => (
+              <option key={f.key} value={f.key} className="bg-[#111827]">{f.label}</option>
+            ))}
+          </select>
+
+          <select
+            value={expirationFilter}
+            onChange={(e) => setExpirationFilter(e.target.value as ExpirationFilter)}
+            className="px-3 py-1.5 text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/70 outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors cursor-pointer"
+          >
+            {EXPIRATION_FILTERS.map((f) => (
+              <option key={f.key} value={f.key} className="bg-[#111827]">{f.label}</option>
+            ))}
+          </select>
+
+          {(planFilter !== 'all' || expirationFilter !== 'all') && (
+            <button
+              onClick={() => {
+                setPlanFilter('all')
+                setExpirationFilter('all')
+              }}
+              className="px-3 py-1.5 text-xs bg-white/[0.04] border border-white/[0.08] rounded-lg text-white/50 hover:text-white/70 hover:bg-white/[0.06] transition-colors"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/[0.04]">
+              {['Negocio', 'Plan', 'Estado', 'Vencimiento', 'Acciones'].map((h) => (
+                <th key={h} className="text-left text-[10px] font-semibold text-white/20 uppercase tracking-widest px-4 py-3">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center py-16 text-sm text-white/20">
+                  No hay resultados
+                </td>
+              </tr>
+            ) : (
+              filtered.map((sub, i) => {
+                const days = daysUntil(sub.expiresAt)
+                const soonExpiring = days !== null && days <= 7 && days > 0
+                return (
+                  <tr
+                    key={sub.id}
+                    className={`border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors ${
+                      i === filtered.length - 1 ? 'border-b-0' : ''
+                    }`}
+                  >
+                    {/* Negocio */}
+                    <td className="px-4 py-3.5">
+                      <div className="font-medium text-sm text-white/80">{sub.businessName}</div>
+                      <div className="text-xs text-white/30 mt-0.5">{sub.contactEmail}</div>
+                      <div className="text-xs text-white/20 mt-0.5">{sub.contactPhone}</div>
+                      {sub.notes && (
+                        <div className="text-xs text-amber-400/70 mt-1 flex items-center gap-1">
+                          <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                          </svg>
+                          <span className="truncate max-w-[180px]">{sub.notes}</span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Plan */}
+                    <td className="px-4 py-3.5">
+                      <PlanBadge plan={sub.plan} amount={sub.amount} />
+                    </td>
+
+                    {/* Estado */}
+                    <td className="px-4 py-3.5">
+                      <StatusBadge status={sub.status} />
+                    </td>
+
+                    {/* Vencimiento */}
+                    <td className="px-4 py-3.5">
+                      <div className={`text-xs font-medium ${soonExpiring ? 'text-amber-400' : 'text-white/50'}`}>
+                        {formatDate(sub.expiresAt)}
+                      </div>
+                      {days !== null && (
+                        <div className={`text-xs mt-0.5 ${
+                          days <= 0 ? 'text-red-400' : soonExpiring ? 'text-amber-400/70' : 'text-white/20'
+                        }`}>
+                          {days <= 0 ? 'Vencida' : days === 1 ? 'Vence mañana' : `${days} días`}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Acciones */}
+                    <td className="px-4 py-3.5">
+                      <RowActions sub={sub} onChange={handleChange} />
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footer */}
+      {filtered.length > 0 && (
+        <div className="px-4 py-2.5 border-t border-white/[0.04]">
+          <span className="text-xs text-white/20">
+            {filtered.length} {filtered.length === 1 ? 'suscripción' : 'suscripciones'}
+            {(tab !== 'all' || search) && ` · ${data.length} en total`}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}

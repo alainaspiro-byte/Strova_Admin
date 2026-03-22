@@ -1,0 +1,277 @@
+import { Subscription, SubscriptionStats, Client, SubscriptionPlan, PaymentLog, AdminUser, SystemConfig } from './types'
+
+// ─── CAMBIA ESTO POR EL NÚMERO REAL DE WHATSAPP ──────────────────
+export const WHATSAPP_NUMBER = '5355555555'
+// ─────────────────────────────────────────────────────────────────
+
+export const PLAN_LABELS: Record<string, string> = {
+  basic: 'Básico',
+  pro: 'Pro',
+  enterprise: 'Empresarial',
+}
+
+export const PLAN_PRICES: Record<string, number> = {
+  basic: 10,
+  pro: 25,
+  enterprise: 60,
+}
+
+export const MOCK_STATS: SubscriptionStats = {
+  active: 4,
+  pending: 2,
+  monthlyRevenue: 145,
+  expiringThisWeek: 2,
+}
+
+export const MOCK_SUBSCRIPTIONS: Subscription[] = [
+  {
+    id: '1',
+    businessName: 'Tienda La 83',
+    contactEmail: 'carlos@la83.cu',
+    contactPhone: '+53 5512 1111',
+    plan: 'pro',
+    status: 'active',
+    paymentMethod: 'cash',
+    amount: 25,
+    startsAt: '2025-03-15',
+    expiresAt: '2025-04-15',
+    notes: null,
+    createdAt: '2025-03-14',
+  },
+  {
+    id: '2',
+    businessName: 'Farmacia Central',
+    contactEmail: 'info@farmacia.cu',
+    contactPhone: '+53 5512 2222',
+    plan: 'enterprise',
+    status: 'pending',
+    paymentMethod: null,
+    amount: 60,
+    startsAt: null,
+    expiresAt: null,
+    notes: 'Esperando confirmación de transferencia',
+    createdAt: '2025-03-17',
+  },
+  {
+    id: '3',
+    businessName: 'Bodega Martínez',
+    contactEmail: 'bodega@mail.cu',
+    contactPhone: '+53 5512 3333',
+    plan: 'basic',
+    status: 'pending',
+    paymentMethod: null,
+    amount: 10,
+    startsAt: null,
+    expiresAt: null,
+    notes: null,
+    createdAt: '2025-03-18',
+  },
+  {
+    id: '4',
+    businessName: 'AutoPiezas Norte',
+    contactEmail: 'autopiezas@cu.cu',
+    contactPhone: '+53 5512 4444',
+    plan: 'pro',
+    status: 'active',
+    paymentMethod: 'transfer',
+    amount: 25,
+    startsAt: '2025-03-22',
+    expiresAt: '2025-04-22',
+    notes: null,
+    createdAt: '2025-03-21',
+  },
+  {
+    id: '5',
+    businessName: 'Panadería El Sol',
+    contactEmail: 'elsol@mail.cu',
+    contactPhone: '+53 5512 5555',
+    plan: 'basic',
+    status: 'active',
+    paymentMethod: 'cash',
+    amount: 10,
+    startsAt: '2025-03-02',
+    expiresAt: '2025-04-02',
+    notes: null,
+    createdAt: '2025-03-01',
+  },
+  {
+    id: '6',
+    businessName: 'Ferretería Habana',
+    contactEmail: 'ferreteria@hab.cu',
+    contactPhone: '+53 5512 6666',
+    plan: 'pro',
+    status: 'expired',
+    paymentMethod: 'cash',
+    amount: 25,
+    startsAt: '2025-02-01',
+    expiresAt: '2025-03-01',
+    notes: 'Cliente contactado, pendiente renovación',
+    createdAt: '2025-01-31',
+  },
+  {
+    id: '7',
+    businessName: 'Electrónica Vedado',
+    contactEmail: 'electronica@ved.cu',
+    contactPhone: '+53 5512 7777',
+    plan: 'enterprise',
+    status: 'active',
+    paymentMethod: 'transfer',
+    amount: 60,
+    startsAt: '2025-03-10',
+    expiresAt: '2025-04-10',
+    notes: null,
+    createdAt: '2025-03-09',
+  },
+  {
+    id: '8',
+    businessName: 'Librería Miramar',
+    contactEmail: 'libros@mir.cu',
+    contactPhone: '+53 5512 8888',
+    plan: 'basic',
+    status: 'cancelled',
+    paymentMethod: 'cash',
+    amount: 10,
+    startsAt: '2025-02-10',
+    expiresAt: '2025-03-10',
+    notes: 'Cancelado por el cliente',
+    createdAt: '2025-02-09',
+  },
+]
+
+export const MOCK_ANALYTICS = {
+  totalVisits: 12584,
+  totalVisitsDelta: 12,
+  uniqueVisitors: 3421,
+  uniqueVisitorsDelta: 8,
+  conversionRate: 3.2,
+  conversionRateDelta: -2,
+  activeSessions: 47,
+  dailyVisits: [
+    { day: 'Lun', visits: 2100 },
+    { day: 'Mar', visits: 1890 },
+    { day: 'Mié', visits: 2340 },
+    { day: 'Jue', visits: 2100 },
+    { day: 'Vie', visits: 2650 },
+    { day: 'Sáb', visits: 1200 },
+    { day: 'Dom', visits: 304 },
+  ],
+  topPages: [
+    { page: '/pricing', visits: 2543, pct: 100 },
+    { page: '/features', visits: 1890, pct: 74 },
+    { page: '/docs', visits: 1234, pct: 49 },
+    { page: '/about', visits: 987, pct: 39 },
+    { page: '/contact', visits: 654, pct: 26 },
+  ],
+  sources: [
+    { name: 'Orgánico', pct: 45 },
+    { name: 'Directo', pct: 28 },
+    { name: 'Social', pct: 18 },
+    { name: 'Referencia', pct: 9 },
+  ],
+}
+
+export const MOCK_CLIENTS: Client[] = [
+  {
+    id: '1',
+    name: 'Carlos Rodríguez',
+    email: 'carlos@la83.cu',
+    phone: '+53 5512 1111',
+    accountStatus: 'active',
+    createdAt: '2025-03-14',
+    subscriptions: [MOCK_SUBSCRIPTIONS[0]],
+    associatedStores: ['store1', 'store2'],
+  },
+  {
+    id: '2',
+    name: 'María González',
+    email: 'info@farmacia.cu',
+    phone: '+53 5512 2222',
+    accountStatus: 'active',
+    createdAt: '2025-03-17',
+    subscriptions: [MOCK_SUBSCRIPTIONS[1]],
+    associatedStores: ['store3'],
+  },
+  {
+    id: '3',
+    name: 'José Martínez',
+    email: 'bodega@mail.cu',
+    phone: '+53 5512 3333',
+    accountStatus: 'inactive',
+    createdAt: '2025-03-18',
+    subscriptions: [MOCK_SUBSCRIPTIONS[2]],
+    associatedStores: [],
+  },
+]
+
+export const MOCK_PLANS: SubscriptionPlan[] = [
+  {
+    id: '1',
+    name: 'Básico',
+    price: 10,
+    durationDays: 30,
+    productLimit: 100,
+    createdAt: '2025-01-01',
+    updatedAt: '2025-01-01',
+    priceHistory: [{ price: 10, date: '2025-01-01' }],
+  },
+  {
+    id: '2',
+    name: 'Pro',
+    price: 25,
+    durationDays: 30,
+    productLimit: 500,
+    createdAt: '2025-01-01',
+    updatedAt: '2025-03-01',
+    priceHistory: [
+      { price: 20, date: '2025-01-01' },
+      { price: 25, date: '2025-03-01' },
+    ],
+  },
+  {
+    id: '3',
+    name: 'Empresarial',
+    price: 60,
+    durationDays: 30,
+    productLimit: 2000,
+    createdAt: '2025-01-01',
+    updatedAt: '2025-01-01',
+    priceHistory: [{ price: 60, date: '2025-01-01' }],
+  },
+]
+
+export const MOCK_PAYMENT_LOGS: PaymentLog[] = [
+  {
+    id: '1',
+    subscriptionId: '1',
+    clientName: 'Carlos Rodríguez',
+    amount: 25,
+    date: '2025-03-15',
+    paymentMethod: 'cash',
+    adminId: 'admin1',
+    adminName: 'Admin User',
+  },
+  {
+    id: '2',
+    subscriptionId: '4',
+    clientName: 'José Martínez',
+    amount: 25,
+    date: '2025-03-22',
+    paymentMethod: 'transfer',
+    adminId: 'admin1',
+    adminName: 'Admin User',
+  },
+]
+
+export const MOCK_ADMINS: AdminUser[] = [
+  {
+    id: 'admin1',
+    name: 'Admin User',
+    email: 'admin@strova.com',
+    role: 'superadmin',
+    createdAt: '2025-01-01',
+  },
+]
+
+export const MOCK_SYSTEM_CONFIG: SystemConfig = {
+  alertDaysBeforeExpiry: 7,
+}
