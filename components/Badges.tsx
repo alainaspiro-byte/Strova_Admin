@@ -8,10 +8,14 @@ const STATUS: Record<SubscriptionStatus, { label: string; classes: string }> = {
   expired:   { label: 'Vencida',   classes: 'bg-red-500/15 text-red-400 ring-red-500/25' },
 }
 
-const PLAN_STYLE: Record<Plan, string> = {
+const PLAN_STYLE: Record<string, string> = {
   basic:      'bg-slate-700/60 text-slate-300',
   pro:        'bg-blue-500/15 text-blue-400',
   enterprise: 'bg-purple-500/15 text-purple-400',
+}
+
+function planStyle(plan: Plan): string {
+  return PLAN_STYLE[plan] ?? 'bg-slate-700/60 text-slate-300'
 }
 
 export function StatusBadge({ status }: { status: SubscriptionStatus }) {
@@ -24,10 +28,22 @@ export function StatusBadge({ status }: { status: SubscriptionStatus }) {
   )
 }
 
-export function PlanBadge({ plan, amount }: { plan: Plan; amount: number }) {
+export function PlanBadge({
+  plan,
+  planLabel,
+  amount,
+}: {
+  plan: Plan
+  /** Texto desde la API (nombre del plan) */
+  planLabel?: string
+  amount: number
+}) {
+  const label =
+    planLabel ||
+    (plan in PLAN_LABELS ? PLAN_LABELS[plan as keyof typeof PLAN_LABELS] : String(plan))
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${PLAN_STYLE[plan]}`}>
-      {PLAN_LABELS[plan]} · ${amount}
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${planStyle(plan)}`}>
+      {label} · ${amount}
     </span>
   )
 }

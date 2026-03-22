@@ -1,16 +1,23 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
+import { errorMessage } from '@/lib/api'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login } = useAuth()
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth()
   const router = useRouter()
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace('/')
+    }
+  }, [authLoading, isAuthenticated, router])
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -21,10 +28,26 @@ export default function LoginPage() {
       await login(email, password)
       router.push('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(errorMessage(err, 'Error al iniciar sesión'))
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0f1c] flex items-center justify-center">
+        <p className="text-white/50 text-sm">Cargando…</p>
+      </div>
+    )
+  }
+
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#0a0f1c] flex items-center justify-center">
+        <p className="text-white/50 text-sm">Redirigiendo al panel…</p>
+      </div>
+    )
   }
 
   return (

@@ -1,6 +1,7 @@
 export type SubscriptionStatus = 'pending' | 'active' | 'cancelled' | 'expired'
 export type PaymentMethod = 'cash' | 'transfer' | null
-export type Plan = 'basic' | 'pro' | 'enterprise'
+/** Slug interno para badges; la API puede devolver nombres distintos (ver planName). */
+export type Plan = 'basic' | 'pro' | 'enterprise' | string
 
 export interface Subscription {
   id: string
@@ -8,6 +9,11 @@ export interface Subscription {
   contactEmail: string
   contactPhone: string
   plan: Plan
+  /** Nombre legible del plan desde la API */
+  planName?: string
+  planId?: string
+  /** Si la fila enlaza con una solicitud, permite aprobar/rechazar por este id */
+  requestId?: string
   status: SubscriptionStatus
   paymentMethod: PaymentMethod
   amount: number
@@ -24,6 +30,7 @@ export interface SubscriptionStats {
   expiringThisWeek: number
 }
 
+/** @deprecated Vista antigua con mocks; usar OrganizationClientRow + API */
 export interface Client {
   id: string
   name: string
@@ -35,6 +42,23 @@ export interface Client {
   associatedStores: string[] // IDs de tiendas en Strova
 }
 
+/** Organización + admin (GET /api/organization) */
+export interface OrganizationClientRow {
+  id: string
+  organizationName: string
+  email: string
+  phone: string
+  accountStatus: 'active' | 'inactive'
+  adminName: string
+  adminEmail: string
+  createdAt: string
+}
+
+export interface OrganizationDetail extends OrganizationClientRow {
+  adminPhone?: string
+  raw: Record<string, unknown>
+}
+
 export interface SubscriptionPlan {
   id: string
   name: string
@@ -44,6 +68,8 @@ export interface SubscriptionPlan {
   createdAt: string
   updatedAt: string
   priceHistory: { price: number; date: string }[]
+  /** Presente si la API lo envía (catálogo público suele ser solo activos) */
+  isActive?: boolean
 }
 
 export interface PaymentLog {

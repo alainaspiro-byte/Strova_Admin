@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { apiClient } from '@/lib/api'
+import { apiClient, errorMessage } from '@/lib/api'
 
 interface User {
   id: string
@@ -56,18 +56,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null)
       setIsLoading(true)
       const response = await apiClient.login(email, password)
-      
-      const userData = {
-        id: response.user?.id || email,
-        email: response.user?.email || email,
-        name: response.user?.name,
-        role: response.user?.role,
-      }
+
+      const userData = response.user
+        ? {
+            id: String(response.user.id),
+            email: response.user.email,
+            name: response.user.name,
+            role: response.user.role,
+          }
+        : {
+            id: email,
+            email,
+          }
       
       setUser(userData)
       localStorage.setItem('user', JSON.stringify(userData))
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed'
+      const message = errorMessage(err, 'Login failed')
       setError(message)
       throw err
     } finally {

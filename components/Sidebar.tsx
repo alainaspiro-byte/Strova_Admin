@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -26,7 +26,7 @@ const NAV = [
     ),
   },
   {
-    label: 'Clientes',
+    label: 'Organizaciones',
     href: '/clients',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

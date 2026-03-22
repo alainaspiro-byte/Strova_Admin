@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { apiClient } from '@/lib/api'
+import { apiClient, errorMessage } from '@/lib/api'
 import { SubscriptionStats } from '@/lib/types'
 import { StatsCards } from '@/components/StatsCards'
 import { AnalyticsSection } from '@/components/AnalyticsSection'
@@ -26,7 +26,7 @@ export default function HomePage() {
         setStats(data)
         setError(null)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error al cargar estadísticas')
+        setError(errorMessage(err, 'Error al cargar estadísticas'))
         setStats(DEFAULT_STATS)
       } finally {
         setIsLoading(false)

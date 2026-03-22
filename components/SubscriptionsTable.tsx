@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Subscription, SubscriptionStatus, Plan } from '@/lib/types'
 import { StatusBadge, PlanBadge, formatDate, daysUntil } from './Badges'
 import { RowActions } from './RowActions'
@@ -33,38 +33,21 @@ const EXPIRATION_FILTERS: { key: ExpirationFilter; label: string }[] = [
 
 export function SubscriptionsTable({
   initial,
-  onDataChange,
+  onRemoteUpdate,
 }: {
   initial: Subscription[]
-  onDataChange?: (data: Subscription[]) => void
+  /** Tras aprobar/renovar/cambiar plan vía API */
+  onRemoteUpdate?: () => void | Promise<void>
 }) {
   const [data, setData] = useState(initial)
+  useEffect(() => {
+    setData(initial)
+  }, [initial])
+
   const [tab, setTab] = useState<Tab>('all')
   const [planFilter, setPlanFilter] = useState<PlanFilter>('all')
   const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>('all')
   const [search, setSearch] = useState('')
-
-  function handleChange(
-    id: string,
-    status: Subscription['status'],
-    paymentMethod?: Subscription['paymentMethod']
-  ) {
-    setData((prev) => {
-      const updated = prev.map((s) => {
-        if (s.id !== id) return s
-        const now = new Date().toISOString()
-        const exp = new Date(Date.now() + 30 * 86400000).toISOString()
-        return {
-          ...s,
-          status,
-          ...(paymentMethod !== undefined && { paymentMethod }),
-          ...(status === 'active' && { startsAt: now, expiresAt: exp }),
-        }
-      })
-      onDataChange?.(updated)
-      return updated
-    })
-  }
 
   const counts = useMemo(() => ({
     all: data.length,
@@ -214,7 +197,7 @@ export function SubscriptionsTable({
 
                     {/* Plan */}
                     <td className="px-4 py-3.5">
-                      <PlanBadge plan={sub.plan} amount={sub.amount} />
+                      <PlanBadge plan={sub.plan} planLabel={sub.planName} amount={sub.amount} />
                     </td>
 
                     {/* Estado */}
@@ -238,7 +221,7 @@ export function SubscriptionsTable({
 
                     {/* Acciones */}
                     <td className="px-4 py-3.5">
-                      <RowActions sub={sub} onChange={handleChange} />
+                      <RowActions sub={sub} onRemoteUpdate={onRemoteUpdate} />
                     </td>
                   </tr>
                 )
