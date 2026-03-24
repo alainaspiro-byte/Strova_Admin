@@ -3,10 +3,17 @@
 import { useState, useCallback } from 'react'
 import { Subscription } from '@/lib/types'
 import { PLAN_LABELS, WHATSAPP_NUMBER } from '@/lib/data'
-import { apiClient, errorMessage, type BillingCycle } from '@/lib/api'
+import { apiClient, errorMessage } from '@/lib/api'
+import type { BillingCycle } from '@/lib/mappers'
 import type { SubscriptionPlan } from '@/lib/types'
 
 const DEFAULT_BILLING: BillingCycle = 'Monthly'
+
+const modalPanel =
+  'bg-white dark:bg-[#1a2332] border border-slate-200 dark:border-white/[0.08] rounded-xl p-4 w-full max-w-sm space-y-3 shadow-xl dark:shadow-none'
+const field =
+  'w-full px-3 py-2 text-xs bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white'
+const fieldArea = `${field} min-h-[60px]`
 
 function planDisplay(sub: Subscription) {
   return sub.planName || (sub.plan in PLAN_LABELS ? PLAN_LABELS[sub.plan as keyof typeof PLAN_LABELS] : String(sub.plan))
@@ -23,11 +30,11 @@ function buildWaUrl(sub: Subscription) {
 
 interface Props {
   sub: Subscription
-  onChange: (id: string, status: Subscription['status'], method?: Subscription['paymentMethod']) => void
+  onChange?: (id: string, status: Subscription['status'], method?: Subscription['paymentMethod']) => void
   onRemoteUpdate?: () => void | Promise<void>
 }
 
-export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
+export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [modal, setModal] = useState<'none' | 'renew' | 'change' | 'approve' | 'reject'>('none')
@@ -110,14 +117,16 @@ export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
         )}
 
         {sub.status === 'pending' && !sub.requestId && (
-          <span className="text-[10px] text-white/25 max-w-[100px] text-right">Solicitudes: pestaña aparte</span>
+          <span className="text-[10px] text-slate-400 dark:text-white/25 max-w-[100px] text-right">
+            Solicitudes: pestaña aparte
+          </span>
         )}
 
         {sub.status === 'active' && (
           <button
             type="button"
             onClick={loadPlansForChange}
-            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70 transition-colors"
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-white/5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/70 transition-colors"
           >
             Cambiar plan
           </button>
@@ -139,22 +148,22 @@ export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
 
       {modal === 'approve' && sub.requestId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
-          <div className="bg-[#1a2332] border border-white/[0.08] rounded-xl p-4 w-full max-w-sm space-y-3">
-            <h3 className="text-sm font-semibold text-white">Aprobar solicitud</h3>
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Aprobar solicitud</h3>
             <input
               placeholder="Referencia de pago (opcional)"
               value={paymentRef}
               onChange={(e) => setPaymentRef(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white"
+              className={field}
             />
             <textarea
               placeholder="Notas (opcional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white min-h-[60px]"
+              className={fieldArea}
             />
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-white/50">
+              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50">
                 Cancelar
               </button>
               <button
@@ -179,18 +188,18 @@ export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
 
       {modal === 'reject' && sub.requestId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
-          <div className="bg-[#1a2332] border border-white/[0.08] rounded-xl p-4 w-full max-w-sm space-y-3">
-            <h3 className="text-sm font-semibold text-white">Rechazar solicitud</h3>
-            <p className="text-[11px] text-white/40">La API exige un motivo (notas).</p>
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Rechazar solicitud</h3>
+            <p className="text-[11px] text-slate-500 dark:text-white/40">La API exige un motivo (notas).</p>
             <textarea
               placeholder="Motivo (obligatorio)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white min-h-[72px]"
+              className={`${field} min-h-[72px]`}
               required
             />
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-white/50">
+              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50">
                 Cancelar
               </button>
               <button
@@ -212,13 +221,13 @@ export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
 
       {modal === 'renew' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
-          <div className="bg-[#1a2332] border border-white/[0.08] rounded-xl p-4 w-full max-w-sm space-y-3">
-            <h3 className="text-sm font-semibold text-white">Renovar suscripción</h3>
-            <label className="block text-[11px] text-white/50">Ciclo de facturación</label>
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Renovar suscripción</h3>
+            <label className="block text-[11px] text-slate-500 dark:text-white/50">Ciclo de facturación</label>
             <select
               value={billingCycle}
               onChange={(e) => setBillingCycle(e.target.value as BillingCycle)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white"
+              className={field}
             >
               <option value="Monthly">Monthly</option>
               <option value="Yearly">Yearly</option>
@@ -228,16 +237,16 @@ export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
               placeholder="Referencia de pago (opcional)"
               value={paymentRef}
               onChange={(e) => setPaymentRef(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white"
+              className={field}
             />
             <textarea
               placeholder="Notas (opcional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white min-h-[50px]"
+              className={`${field} min-h-[50px]`}
             />
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-white/50">
+              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50">
                 Cancelar
               </button>
               <button
@@ -263,13 +272,13 @@ export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
 
       {modal === 'change' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
-          <div className="bg-[#1a2332] border border-white/[0.08] rounded-xl p-4 w-full max-w-sm space-y-3">
-            <h3 className="text-sm font-semibold text-white">Cambiar plan</h3>
-            <label className="block text-[11px] text-white/50">Plan</label>
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Cambiar plan</h3>
+            <label className="block text-[11px] text-slate-500 dark:text-white/50">Plan</label>
             <select
               value={planId}
               onChange={(e) => setPlanId(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white"
+              className={field}
             >
               {plans.length === 0 ? (
                 <option value="">Cargando o sin planes…</option>
@@ -281,11 +290,11 @@ export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
                 ))
               )}
             </select>
-            <label className="block text-[11px] text-white/50">Ciclo de facturación</label>
+            <label className="block text-[11px] text-slate-500 dark:text-white/50">Ciclo de facturación</label>
             <select
               value={billingCycle}
               onChange={(e) => setBillingCycle(e.target.value as BillingCycle)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white"
+              className={field}
             >
               <option value="Monthly">Monthly</option>
               <option value="Yearly">Yearly</option>
@@ -295,16 +304,16 @@ export function RowActions({ sub, onChange, onRemoteUpdate }: Props) {
               placeholder="Referencia de pago (opcional)"
               value={paymentRef}
               onChange={(e) => setPaymentRef(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white"
+              className={field}
             />
             <textarea
               placeholder="Notas (opcional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white min-h-[50px]"
+              className={`${field} min-h-[50px]`}
             />
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-white/50">
+              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50">
                 Cancelar
               </button>
               <button

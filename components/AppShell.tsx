@@ -20,7 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute>
       <Sidebar />
-      <main className="flex-1 min-h-screen overflow-y-auto ml-16 md:ml-0">
+      <main className="flex-1 min-h-screen overflow-y-auto ml-16 md:ml-0 bg-[#f8fafc] dark:bg-[#0a0f1c]">
         <div className="max-w-7xl mx-auto">{children}</div>
       </main>
     </ProtectedRoute>

@@ -5,6 +5,13 @@ import type { SubscriptionRequestRow } from '@/lib/mappers'
 import { apiClient, errorMessage } from '@/lib/api'
 import { formatDate } from './Badges'
 
+const shell =
+  'bg-white dark:bg-[#111827] rounded-xl border border-slate-200 shadow-sm dark:border-white/[0.06] dark:shadow-none overflow-hidden'
+const modalPanel =
+  'bg-white dark:bg-[#1a2332] border border-slate-200 dark:border-white/[0.08] rounded-xl p-4 w-full max-w-sm space-y-3 shadow-xl dark:shadow-none'
+const field =
+  'w-full px-3 py-2 text-xs bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white'
+
 export function RequestsTable({
   initial,
   onRemoteUpdate,
@@ -43,18 +50,20 @@ export function RequestsTable({
   }
 
   return (
-    <div className="bg-[#111827] rounded-xl border border-white/[0.06] overflow-hidden">
+    <div className={shell}>
       {err && (
-        <div className="px-4 py-2 text-xs text-red-400 border-b border-white/[0.06]">{err}</div>
+        <div className="px-4 py-2 text-xs text-red-600 dark:text-red-400 border-b border-slate-200 dark:border-white/[0.06]">
+          {err}
+        </div>
       )}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/[0.04]">
+            <tr className="border-b border-slate-200 dark:border-white/[0.04]">
               {['Negocio', 'Email', 'Plan', 'Estado', 'Alta', 'Acciones'].map((h) => (
                 <th
                   key={h}
-                  className="text-left text-[10px] font-semibold text-white/20 uppercase tracking-widest px-4 py-3"
+                  className="text-left text-[10px] font-semibold text-slate-400 dark:text-white/20 uppercase tracking-widest px-4 py-3"
                 >
                   {h}
                 </th>
@@ -64,7 +73,7 @@ export function RequestsTable({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-16 text-sm text-white/20">
+                <td colSpan={6} className="text-center py-16 text-sm text-slate-400 dark:text-white/20">
                   No hay solicitudes
                 </td>
               </tr>
@@ -72,15 +81,17 @@ export function RequestsTable({
               rows.map((r, i) => (
                 <tr
                   key={r.id}
-                  className={`border-b border-white/[0.03] hover:bg-white/[0.02] ${
+                  className={`border-b border-slate-200 dark:border-white/[0.03] hover:bg-slate-50 dark:hover:bg-white/[0.02] ${
                     i === rows.length - 1 ? 'border-b-0' : ''
                   }`}
                 >
-                  <td className="px-4 py-3 text-sm text-white/80">{r.businessName}</td>
-                  <td className="px-4 py-3 text-xs text-white/40">{r.contactEmail}</td>
-                  <td className="px-4 py-3 text-xs text-white/50">{r.planLabel}</td>
-                  <td className="px-4 py-3 text-xs text-amber-400/90">{r.status || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-white/30">{r.createdAt ? formatDate(r.createdAt) : '—'}</td>
+                  <td className="px-4 py-3 text-sm text-slate-800 dark:text-white/80">{r.businessName}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/40">{r.contactEmail}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 dark:text-white/50">{r.planLabel}</td>
+                  <td className="px-4 py-3 text-xs text-amber-700 dark:text-amber-400/90">{r.status || '—'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/30">
+                    {r.createdAt ? formatDate(r.createdAt) : '—'}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button
@@ -116,22 +127,22 @@ export function RequestsTable({
 
       {modal === 'approve' && activeId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
-          <div className="bg-[#1a2332] border border-white/[0.08] rounded-xl p-4 w-full max-w-sm space-y-3">
-            <h3 className="text-sm font-semibold text-white">Aprobar solicitud</h3>
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Aprobar solicitud</h3>
             <input
               placeholder="Referencia de pago (opcional)"
               value={paymentRef}
               onChange={(e) => setPaymentRef(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white"
+              className={field}
             />
             <textarea
               placeholder="Notas (opcional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white min-h-[60px]"
+              className={`${field} min-h-[60px]`}
             />
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={close} className="px-3 py-1.5 text-xs text-white/50">
+              <button type="button" onClick={close} className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50">
                 Cancelar
               </button>
               <button
@@ -156,16 +167,16 @@ export function RequestsTable({
 
       {modal === 'reject' && activeId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
-          <div className="bg-[#1a2332] border border-white/[0.08] rounded-xl p-4 w-full max-w-sm space-y-3">
-            <h3 className="text-sm font-semibold text-white">Rechazar solicitud</h3>
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Rechazar solicitud</h3>
             <textarea
               placeholder="Motivo (obligatorio)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] border border-white/[0.08] rounded-lg text-white min-h-[72px]"
+              className={`${field} min-h-[72px]`}
             />
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={close} className="px-3 py-1.5 text-xs text-white/50">
+              <button type="button" onClick={close} className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50">
                 Cancelar
               </button>
               <button

@@ -7,6 +7,6 @@
     box-sizing: border-box;
   }
   body {
-    @apply bg-slate-950 text-gray-100 antialiased;
+    @apply antialiased bg-[#f8fafc] text-slate-900 dark:bg-[#0a0f1c] dark:text-gray-100;
   }
 }

@@ -1,10 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useTheme } from 'next-themes'
 import { MOCK_ADMINS, MOCK_SYSTEM_CONFIG } from '@/lib/data'
 import { AdminUser, SystemConfig } from '@/lib/types'
 
+const tableShell =
+  'bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 shadow-sm dark:border-white/[0.08] dark:shadow-none overflow-hidden'
+const theadRow = 'bg-slate-100 dark:bg-[#111827] border-b border-slate-200 dark:border-white/[0.06]'
+const th = 'px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider'
+const inputClass =
+  'w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500'
+const cardForm = 'bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 shadow-sm dark:border-white/[0.08] dark:shadow-none p-6'
+
 export default function SettingsPage() {
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [admins, setAdmins] = useState<AdminUser[]>(MOCK_ADMINS)
   const [systemConfig, setSystemConfig] = useState<SystemConfig>(MOCK_SYSTEM_CONFIG)
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
@@ -14,6 +25,10 @@ export default function SettingsPage() {
     email: '',
     role: 'admin' as 'admin' | 'superadmin',
   })
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleOpenUserModal = (user?: AdminUser) => {
     if (user) {
@@ -51,7 +66,7 @@ export default function SettingsPage() {
     }
 
     if (editingUser) {
-      setAdmins(admins.map(u => u.id === editingUser.id ? newUser : u))
+      setAdmins(admins.map((u) => (u.id === editingUser.id ? newUser : u)))
     } else {
       setAdmins([...admins, newUser])
     }
@@ -61,28 +76,53 @@ export default function SettingsPage() {
 
   const handleDeleteUser = (userId: string) => {
     if (confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
-      setAdmins(admins.filter(u => u.id !== userId))
+      setAdmins(admins.filter((u) => u.id !== userId))
     }
   }
 
   const handleConfigSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Aquí iría la lógica para guardar la configuración
     alert('Configuración guardada exitosamente')
   }
 
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Configuración del Sistema</h1>
-        <p className="text-white/60">Gestiona usuarios y configuraciones del sistema</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Configuración del Sistema</h1>
+        <p className="text-slate-600 dark:text-white/60">Gestiona usuarios y configuraciones del sistema</p>
       </div>
 
       <div className="space-y-8">
-        {/* Gestión de Usuarios */}
+        {/* Apariencia */}
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Apariencia</h2>
+          <div className={cardForm}>
+            <p className="text-sm text-slate-600 dark:text-white/50 mb-4">
+              Elige entre modo claro u oscuro. La barra lateral mantiene un estilo oscuro en modo claro.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(['light', 'dark'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  disabled={!mounted}
+                  onClick={() => setTheme(t)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    mounted && theme === t
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/[0.08] dark:text-white/80 dark:hover:bg-white/[0.12]'
+                  }`}
+                >
+                  {t === 'light' ? 'Modo claro' : 'Modo oscuro'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-white">Usuarios con Acceso</h2>
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Usuarios con Acceso</h2>
             <button
               onClick={() => handleOpenUserModal()}
               className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
@@ -91,42 +131,44 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          <div className="bg-[#1a2332] rounded-lg border border-white/[0.08] overflow-hidden">
+          <div className={tableShell}>
             <table className="w-full">
-              <thead className="bg-[#111827] border-b border-white/[0.06]">
+              <thead className={theadRow}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Rol</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Fecha de Creación</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Acciones</th>
+                  <th className={th}>Nombre</th>
+                  <th className={th}>Email</th>
+                  <th className={th}>Rol</th>
+                  <th className={th}>Fecha de Creación</th>
+                  <th className={th}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.06]">
+              <tbody className="divide-y divide-slate-200 dark:divide-white/[0.06]">
                 {admins.map((admin) => (
-                  <tr key={admin.id} className="hover:bg-[#111827]">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{admin.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white/70">{admin.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white/70">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        admin.role === 'superadmin'
-                          ? 'bg-purple-500/15 text-purple-400'
-                          : 'bg-blue-500/15 text-blue-400'
-                      }`}>
+                  <tr key={admin.id} className="hover:bg-slate-50 dark:hover:bg-[#111827]">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">{admin.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-white/70">{admin.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-white/70">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                          admin.role === 'superadmin'
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400'
+                            : 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400'
+                        }`}
+                      >
                         {admin.role === 'superadmin' ? 'Super Admin' : 'Admin'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white/70">{admin.createdAt}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-white/70">{admin.createdAt}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                       <button
                         onClick={() => handleOpenUserModal(admin)}
-                        className="text-blue-400 hover:text-blue-300 font-medium"
+                        className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => handleDeleteUser(admin.id)}
-                        className="text-red-400 hover:text-red-300 font-medium"
+                        className="text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 font-medium"
                       >
                         Eliminar
                       </button>
@@ -138,25 +180,27 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Configuración de Alertas */}
         <div>
-          <h2 className="text-xl font-semibold text-white mb-4">Configuración de Alertas</h2>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">Configuración de Alertas</h2>
 
-          <form onSubmit={handleConfigSubmit} className="bg-[#1a2332] rounded-lg border border-white/[0.08] p-6">
+          <form onSubmit={handleConfigSubmit} className={cardForm}>
             <div className="max-w-md">
-              <label className="block text-sm font-medium text-white/60 mb-2">
-                Días antes del vencimiento para marcar como "En Riesgo"
+              <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-2">
+                Días antes del vencimiento para marcar como &quot;En Riesgo&quot;
               </label>
               <input
                 type="number"
                 min="1"
                 max="30"
                 value={systemConfig.alertDaysBeforeExpiry}
-                onChange={(e) => setSystemConfig({ ...systemConfig, alertDaysBeforeExpiry: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 bg-[#111827] border border-white/[0.08] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) =>
+                  setSystemConfig({ ...systemConfig, alertDaysBeforeExpiry: parseInt(e.target.value, 10) })
+                }
+                className={inputClass}
               />
-              <p className="text-white/40 text-sm mt-1">
-                Las suscripciones se marcarán como "En Riesgo" cuando falten {systemConfig.alertDaysBeforeExpiry} días para vencer.
+              <p className="text-slate-500 dark:text-white/40 text-sm mt-1">
+                Las suscripciones se marcarán como &quot;En Riesgo&quot; cuando falten {systemConfig.alertDaysBeforeExpiry}{' '}
+                días para vencer.
               </p>
             </div>
 
@@ -172,18 +216,18 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Modal para Usuario */}
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1a2332] rounded-lg border border-white/[0.08] max-w-md w-full mx-4">
+          <div className="bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 dark:border-white/[0.08] max-w-md w-full mx-4 shadow-xl">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
                 </h2>
                 <button
+                  type="button"
                   onClick={handleCloseUserModal}
-                  className="text-white/40 hover:text-white"
+                  className="text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -193,33 +237,35 @@ export default function SettingsPage() {
 
               <form onSubmit={handleUserSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-white/60 mb-1">Nombre</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Nombre</label>
                   <input
                     type="text"
                     value={userFormData.name}
                     onChange={(e) => setUserFormData({ ...userFormData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#111827] border border-white/[0.08] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={inputClass}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/60 mb-1">Email</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Email</label>
                   <input
                     type="email"
                     value={userFormData.email}
                     onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#111827] border border-white/[0.08] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={inputClass}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/60 mb-1">Rol</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Rol</label>
                   <select
                     value={userFormData.role}
-                    onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value as 'admin' | 'superadmin' })}
-                    className="w-full px-3 py-2 bg-[#111827] border border-white/[0.08] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      setUserFormData({ ...userFormData, role: e.target.value as 'admin' | 'superadmin' })
+                    }
+                    className={inputClass}
                   >
                     <option value="admin">Admin</option>
                     <option value="superadmin">Super Admin</option>
@@ -236,7 +282,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={handleCloseUserModal}
-                    className="flex-1 px-4 py-2 bg-[#111827] border border-white/[0.08] text-white rounded-lg font-medium hover:bg-white/[0.04] transition-colors"
+                    className="flex-1 px-4 py-2 bg-slate-100 border border-slate-200 text-slate-800 dark:bg-[#111827] dark:border-white/[0.08] dark:text-white rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-white/[0.04] transition-colors"
                   >
                     Cancelar
                   </button>

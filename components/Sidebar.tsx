@@ -90,7 +90,7 @@ export function Sidebar() {
       )}
       <aside
         ref={sidebarRef}
-        className={`fixed top-0 left-0 z-50 h-screen bg-[#111827] border-r border-white/[0.06] flex flex-col transition-all duration-200 ease-in-out`}
+        className={`fixed top-0 left-0 z-50 h-screen bg-[#1a1c2c] border-r border-white/[0.08] flex flex-col transition-all duration-200 ease-in-out`}
         style={{ width: open ? 224 : 64 }}
       >
         <div className={`flex items-center justify-between px-3 py-3 border-b border-white/[0.06] transition-all duration-200 ${open ? 'pt-5 pb-4' : 'px-2 justify-center'}`}>

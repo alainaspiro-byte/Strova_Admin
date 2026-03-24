@@ -17,10 +17,10 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0f1c]">
+      <div className="flex min-h-screen items-center justify-center bg-[#f8fafc] dark:bg-[#0a0f1c]">
         <div className="text-center">
           <div className="text-4xl mb-4">⏳</div>
-          <p className="text-white/60">Cargando...</p>
+          <p className="text-slate-600 dark:text-white/60">Cargando...</p>
         </div>
       </div>
     )

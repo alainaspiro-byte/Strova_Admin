@@ -22,7 +22,7 @@ export default function HomePage() {
     const fetchStats = async () => {
       try {
         setIsLoading(true)
-        const data = await apiClient.getSubscriptionStats()
+        const data = await apiClient.getDashboardStats()
         setStats(data)
         setError(null)
       } catch (err) {
@@ -45,8 +45,8 @@ export default function HomePage() {
             Herramienta de gestión
           </span>
         </div>
-        <h1 className="text-2xl md:text-3xl font-semibold text-white/90 mb-2">Gestor de Suscripciones</h1>
-        <p className="text-sm text-white/40">
+        <h1 className="text-2xl md:text-3xl font-semibold text-slate-900 dark:text-white/90 mb-2">Gestor de Suscripciones</h1>
+        <p className="text-sm text-slate-500 dark:text-white/40">
           Panel de control para administrar y monitorizar todas las suscripciones. Accede a las métricas en tiempo real y gestiona los planes desde la sección de suscripciones.
         </p>
       </div>
@@ -61,7 +61,7 @@ export default function HomePage() {
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-8">
-          <div className="text-center text-white/60">
+          <div className="text-center text-slate-600 dark:text-white/60">
             <div className="text-2xl mb-2">⏳</div>
             <p>Cargando estadísticas...</p>
           </div>
@@ -72,7 +72,7 @@ export default function HomePage() {
       {!isLoading && <StatsCards stats={stats} />}
 
       {/* Analytics Section */}
-      <div className="bg-[#111827] rounded-xl border border-white/[0.06] p-4 md:p-6">
+      <div className="bg-white dark:bg-[#111827] rounded-xl border border-slate-200 shadow-sm dark:border-white/[0.06] dark:shadow-none p-4 md:p-6">
         <AnalyticsSection />
       </div>
     </div>

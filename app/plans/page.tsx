@@ -99,15 +99,15 @@ export default function PlansPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-2">Gestión de planes</h1>
-        <p className="text-white/60">
-          Catálogo público <code className="text-white/40">GET /api/plan</code>; crear/editar/borrar requiere{' '}
-          <code className="text-white/40">plan.manage</code>. Detalle por id usa <code className="text-white/40">plan.read</code>.
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Gestión de planes</h1>
+        <p className="text-slate-600 dark:text-white/60">
+          Catálogo público <code className="text-slate-500 dark:text-white/40">GET /api/plan</code>; crear/editar/borrar requiere{' '}
+          <code className="text-slate-500 dark:text-white/40">plan.manage</code>. Detalle por id usa <code className="text-slate-500 dark:text-white/40">plan.read</code>.
         </p>
       </div>
 
       {loadError && (
-        <div className="mb-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm text-amber-200">
+        <div className="mb-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm text-amber-800 dark:text-amber-200">
           {loadError}
         </div>
       )}
@@ -123,42 +123,44 @@ export default function PlansPage() {
       </div>
 
       {isLoading ? (
-        <p className="text-white/40">Cargando planes…</p>
+        <p className="text-slate-500 dark:text-white/40">Cargando planes…</p>
       ) : (
-        <div className="bg-[#1a2332] rounded-lg border border-white/[0.08] overflow-hidden">
+        <div className="bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 shadow-sm dark:border-white/[0.08] dark:shadow-none overflow-hidden">
           <table className="w-full">
-            <thead className="bg-[#111827] border-b border-white/[0.06]">
+            <thead className="bg-slate-100 dark:bg-[#111827] border-b border-slate-200 dark:border-white/[0.06]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Nombre</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Precio</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Duración</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Límite productos</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Acciones</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Nombre</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Precio</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Duración</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Límite productos</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.06]">
+            <tbody className="divide-y divide-slate-200 dark:divide-white/[0.06]">
               {plans.map((plan) => (
-                <tr key={plan.id} className="hover:bg-[#111827]">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-medium">{plan.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white">${plan.price} <span className="text-white/40 text-xs">/mes</span></td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white/70">
+                <tr key={plan.id} className="hover:bg-slate-50 dark:hover:bg-[#111827]">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white font-medium">{plan.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 dark:text-white">
+                    ${plan.price} <span className="text-slate-500 dark:text-white/40 text-xs">/mes</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-white/70">
                     {plan.durationDays > 0 ? `${plan.durationDays} días` : '—'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-white/70">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-white/70">
                     {plan.productLimit < 0 ? 'Ilimitado' : plan.productLimit}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     <button
                       type="button"
                       onClick={() => handleOpenModal(plan)}
-                      className="text-blue-400 hover:text-blue-300 font-medium"
+                      className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
                     >
                       Editar
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(plan.id)}
-                      className="text-red-400 hover:text-red-300 font-medium"
+                      className="text-red-600 hover:text-red-500 dark:text-red-400 dark:hover:text-red-300 font-medium"
                     >
                       Eliminar
                     </button>
@@ -172,11 +174,11 @@ export default function PlansPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1a2332] rounded-lg border border-white/[0.08] max-w-md w-full mx-4">
+          <div className="bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 dark:border-white/[0.08] max-w-md w-full mx-4 shadow-xl">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-white">{editingPlan ? 'Editar plan' : 'Nuevo plan'}</h2>
-                <button type="button" onClick={handleCloseModal} className="text-white/40 hover:text-white">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">{editingPlan ? 'Editar plan' : 'Nuevo plan'}</h2>
+                <button type="button" onClick={handleCloseModal} className="text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -185,46 +187,46 @@ export default function PlansPage() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-white/60 mb-1">Nombre</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Nombre</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#111827] border border-white/[0.08] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/60 mb-1">Precio ($)</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Precio ($)</label>
                   <input
                     type="number"
                     step="0.01"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#111827] border border-white/[0.08] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/60 mb-1">Duración (días)</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Duración (días)</label>
                   <input
                     type="number"
                     value={formData.durationDays}
                     onChange={(e) => setFormData({ ...formData, durationDays: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#111827] border border-white/[0.08] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/60 mb-1">Límite de productos</label>
+                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Límite de productos</label>
                   <input
                     type="number"
                     value={formData.productLimit}
                     onChange={(e) => setFormData({ ...formData, productLimit: e.target.value })}
-                    className="w-full px-3 py-2 bg-[#111827] border border-white/[0.08] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -240,7 +242,7 @@ export default function PlansPage() {
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="flex-1 px-4 py-2 bg-[#111827] border border-white/[0.08] text-white rounded-lg font-medium hover:bg-white/[0.04] transition-colors"
+                    className="flex-1 px-4 py-2 bg-slate-100 border border-slate-200 text-slate-800 dark:bg-[#111827] dark:border-white/[0.08] dark:text-white rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-white/[0.04] transition-colors"
                   >
                     Cancelar
                   </button>

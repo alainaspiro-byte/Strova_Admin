@@ -7,9 +7,9 @@ const cards = (stats: SubscriptionStats) => [
     label: 'Activas',
     value: stats.active,
     sub: 'suscripciones al día',
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-500/10 border-emerald-500/20',
-    dot: 'bg-emerald-400',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 border-emerald-200/80 dark:bg-emerald-500/10 dark:border-emerald-500/20',
+    dot: 'bg-emerald-500 dark:bg-emerald-400',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -21,9 +21,9 @@ const cards = (stats: SubscriptionStats) => [
     label: 'Pendientes',
     value: stats.pending,
     sub: 'esperando confirmación',
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10 border-amber-500/20',
-    dot: 'bg-amber-400',
+    color: 'text-amber-600 dark:text-amber-400',
+    bg: 'bg-amber-50 border-amber-200/80 dark:bg-amber-500/10 dark:border-amber-500/20',
+    dot: 'bg-amber-500 dark:bg-amber-400',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -35,9 +35,9 @@ const cards = (stats: SubscriptionStats) => [
     label: 'Ingresos del mes',
     value: `$${stats.monthlyRevenue}`,
     sub: `de ${stats.active} clientes activos`,
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10 border-blue-500/20',
-    dot: 'bg-blue-400',
+    color: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-50 border-blue-200/80 dark:bg-blue-500/10 dark:border-blue-500/20',
+    dot: 'bg-blue-500 dark:bg-blue-400',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -49,9 +49,9 @@ const cards = (stats: SubscriptionStats) => [
     label: 'Vencen esta semana',
     value: stats.expiringThisWeek,
     sub: 'requieren seguimiento',
-    color: 'text-red-400',
-    bg: 'bg-red-500/10 border-red-500/20',
-    dot: 'bg-red-400',
+    color: 'text-red-600 dark:text-red-400',
+    bg: 'bg-red-50 border-red-200/80 dark:bg-red-500/10 dark:border-red-500/20',
+    dot: 'bg-red-500 dark:bg-red-400',
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -67,15 +67,15 @@ export function StatsCards({ stats }: { stats: SubscriptionStats }) {
       {cards(stats).map((c) => (
         <div
           key={c.label}
-          className={`rounded-xl border p-4 flex flex-col gap-3 ${c.bg}`}
+          className={`rounded-xl border p-4 flex flex-col gap-3 shadow-sm dark:shadow-none ${c.bg}`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs text-white/40 font-medium">{c.label}</span>
+            <span className="text-xs text-slate-500 dark:text-white/40 font-medium">{c.label}</span>
             <span className={c.color}>{c.icon}</span>
           </div>
           <div>
             <div className={`text-2xl font-semibold tabular-nums ${c.color}`}>{c.value}</div>
-            <div className="text-xs text-white/30 mt-0.5">{c.sub}</div>
+            <div className="text-xs text-slate-500 dark:text-white/30 mt-0.5">{c.sub}</div>
           </div>
         </div>
       ))}

@@ -81,16 +81,20 @@ export default function SubscriptionsPage() {
   return (
     <div className="p-4 md:p-6 space-y-5">
       <div>
-        <h1 className="text-lg font-semibold text-white/90">Suscripciones</h1>
-        <p className="text-sm text-white/30 mt-0.5">Gestión de planes, solicitudes y renovaciones (API con permiso subscription.manage)</p>
+        <h1 className="text-lg font-semibold text-slate-900 dark:text-white/90">Suscripciones</h1>
+        <p className="text-sm text-slate-500 dark:text-white/30 mt-0.5">
+          Gestión de planes, solicitudes y renovaciones (API con permiso subscription.manage)
+        </p>
       </div>
 
-      <div className="flex gap-1 p-0.5 rounded-lg bg-white/[0.04] border border-white/[0.06] w-fit">
+      <div className="flex gap-1 p-0.5 rounded-lg bg-slate-100 border border-slate-200 dark:bg-white/[0.04] dark:border-white/[0.06] w-fit">
         <button
           type="button"
           onClick={() => setTab('subscriptions')}
           className={`px-4 py-2 rounded-md text-xs font-medium transition-colors ${
-            tab === 'subscriptions' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/60'
+            tab === 'subscriptions'
+              ? 'bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white dark:shadow-none'
+              : 'text-slate-600 hover:text-slate-900 dark:text-white/40 dark:hover:text-white/60'
           }`}
         >
           Suscripciones
@@ -99,7 +103,9 @@ export default function SubscriptionsPage() {
           type="button"
           onClick={() => setTab('requests')}
           className={`px-4 py-2 rounded-md text-xs font-medium transition-colors ${
-            tab === 'requests' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/60'
+            tab === 'requests'
+              ? 'bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white dark:shadow-none'
+              : 'text-slate-600 hover:text-slate-900 dark:text-white/40 dark:hover:text-white/60'
           }`}
         >
           Solicitudes
@@ -116,7 +122,7 @@ export default function SubscriptionsPage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="text-center text-white/60">
+          <div className="text-center text-slate-600 dark:text-white/60">
             <div className="text-2xl mb-2">⏳</div>
             <p>Cargando…</p>
           </div>

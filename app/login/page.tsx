@@ -36,43 +36,37 @@ export default function LoginPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0f1c] flex items-center justify-center">
-        <p className="text-white/50 text-sm">Cargando…</p>
+      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0a0f1c] flex items-center justify-center">
+        <p className="text-slate-600 dark:text-white/50 text-sm">Cargando…</p>
       </div>
     )
   }
 
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0a0f1c] flex items-center justify-center">
-        <p className="text-white/50 text-sm">Redirigiendo al panel…</p>
+      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0a0f1c] flex items-center justify-center">
+        <p className="text-slate-600 dark:text-white/50 text-sm">Redirigiendo al panel…</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a0f1c] to-[#1a2744] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#0a0f1c] dark:to-[#1a2744] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Card */}
-        <div className="bg-[#111827] rounded-2xl border border-white/10 p-8 shadow-2xl">
-          {/* Header */}
+        <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-white/10 p-8 shadow-xl dark:shadow-2xl">
           <div className="mb-8">
             <div className="inline-block px-3 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 mb-4">
-              <span className="text-xs font-semibold text-blue-400 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
                 Strova Suscripciones
               </span>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Acceso Admin</h1>
-            <p className="text-sm text-white/50">
-              Inicia sesión para gestionar suscripciones
-            </p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Acceso Admin</h1>
+            <p className="text-sm text-slate-600 dark:text-white/50">Inicia sesión para gestionar suscripciones</p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
                 Email
               </label>
               <input
@@ -82,13 +76,12 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@example.com"
                 required
-                className="w-full px-4 py-2.5 bg-[#1f2937] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition"
+                className="w-full px-4 py-2.5 bg-white dark:bg-[#1f2937] border border-slate-300 dark:border-white/10 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition"
               />
             </div>
 
-            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-white mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
                 Contraseña
               </label>
               <input
@@ -98,18 +91,16 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-2.5 bg-[#1f2937] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition"
+                className="w-full px-4 py-2.5 bg-white dark:bg-[#1f2937] border border-slate-300 dark:border-white/10 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition"
               />
             </div>
 
-            {/* Error Message */}
             {error && (
               <div className="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                <p className="text-sm text-red-400">{error}</p>
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
@@ -119,16 +110,12 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Footer */}
-          <div className="mt-6 pt-6 border-t border-white/10">
-            <p className="text-xs text-white/40 text-center">
-              Panel de administración de suscripciones
-            </p>
+          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-white/10">
+            <p className="text-xs text-slate-500 dark:text-white/40 text-center">Panel de administración de suscripciones</p>
           </div>
         </div>
 
-        {/* Demo Credentials Info */}
-        <div className="mt-6 p-4 rounded-lg bg-white/5 border border-white/10 text-xs text-white/50 text-center">
+        <div className="mt-6 p-4 rounded-lg bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-600 dark:text-white/50 text-center">
           <p>Usa tus credenciales de administrador</p>
         </div>
       </div>
