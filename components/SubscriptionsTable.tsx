@@ -1,13 +1,11 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Subscription, SubscriptionStatus, Plan } from '@/lib/types'
+import { Subscription, SubscriptionStatus } from '@/lib/types'
 import { StatusBadge, PlanBadge, formatDate, daysUntil } from './Badges'
 import { RowActions } from './RowActions'
-import { PLAN_LABELS } from '@/lib/data'
 
 type Tab = 'all' | SubscriptionStatus
-type PlanFilter = 'all' | Plan
 type ExpirationFilter = 'all' | 'expiring-soon' | 'expired'
 
 const TABS: { key: Tab; label: string }[] = [
@@ -16,13 +14,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'active',    label: 'Activas' },
   { key: 'expired',   label: 'Vencidas' },
   { key: 'cancelled', label: 'Canceladas' },
-]
-
-const PLAN_FILTERS: { key: PlanFilter; label: string }[] = [
-  { key: 'all', label: 'Todos los planes' },
-  { key: 'basic', label: 'Básico' },
-  { key: 'pro', label: 'Pro' },
-  { key: 'enterprise', label: 'Empresarial' },
 ]
 
 const EXPIRATION_FILTERS: { key: ExpirationFilter; label: string }[] = [
@@ -48,7 +39,7 @@ export function SubscriptionsTable({
   }, [initial])
 
   const [tab, setTab] = useState<Tab>('all')
-  const [planFilter, setPlanFilter] = useState<PlanFilter>('all')
+  const [planFilter, setPlanFilter] = useState<string>('all')
   const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>('all')
   const [search, setSearch] = useState('')
 
@@ -60,10 +51,25 @@ export function SubscriptionsTable({
     cancelled: data.filter((s) => s.status === 'cancelled').length,
   }), [data])
 
+  /** Planes únicos presentes en los datos actuales */
+  const planOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    data.forEach((s) => {
+      const key = s.planId ?? s.plan
+      if (!key) return
+      const label = s.planName || s.plan
+      seen.set(key, label)
+    })
+    return Array.from(seen.entries()).map(([key, label]) => ({ key, label }))
+  }, [data])
+
   const filtered = useMemo(() =>
     data.filter((s) => {
       if (tab !== 'all' && s.status !== tab) return false
-      if (planFilter !== 'all' && s.plan !== planFilter) return false
+      if (planFilter !== 'all') {
+        const key = s.planId ?? s.plan
+        if (key !== planFilter) return false
+      }
       if (expirationFilter !== 'all') {
         const days = daysUntil(s.expiresAt)
         if (expirationFilter === 'expiring-soon' && (days === null || days > 7 || days < 0)) return false
@@ -125,10 +131,11 @@ export function SubscriptionsTable({
           <span className="text-xs text-slate-500 dark:text-white/30">Filtros:</span>
           <select
             value={planFilter}
-            onChange={(e) => setPlanFilter(e.target.value as PlanFilter)}
+            onChange={(e) => setPlanFilter(e.target.value)}
             className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors cursor-pointer dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/70"
           >
-            {PLAN_FILTERS.map((f) => (
+            <option value="all" className="bg-white dark:bg-[#111827]">Todos los planes</option>
+            {planOptions.map((f) => (
               <option key={f.key} value={f.key} className="bg-white dark:bg-[#111827]">
                 {f.label}
               </option>

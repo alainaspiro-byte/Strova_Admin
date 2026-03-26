@@ -356,8 +356,10 @@ export interface SubscriptionRequestRow {
   id: string
   businessName: string
   contactEmail: string
+  contactPhone: string
   status: string
   planLabel: string
+  planId: string
   createdAt: string
   raw: Record<string, unknown>
 }
@@ -367,6 +369,9 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
   const o = asRecord(unwrapped) ?? {}
   const org = asRecord(o.organization ?? o.Organization)
   const plan = asRecord(o.plan ?? o.Plan)
+  const user = asRecord(
+    o.user ?? o.User ?? o.admin ?? o.Admin ?? o.owner ?? o.Owner
+  )
 
   const businessName =
     pick(o, ['businessName', 'BusinessName']) ||
@@ -374,22 +379,36 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
     '—'
 
   const contactEmail =
-    pick(o, ['contactEmail', 'ContactEmail']) ||
-    (org ? pick(org, ['email', 'Email']) : '') ||
+    pick(o, ['contactEmail', 'ContactEmail', 'email', 'Email']) ||
+    (user ? pick(user, ['email', 'Email']) : '') ||
+    (org ? pick(org, ['email', 'Email', 'contactEmail', 'ContactEmail']) : '') ||
+    ''
+
+  const contactPhone =
+    pick(o, ['contactPhone', 'ContactPhone', 'phone', 'Phone']) ||
+    (user ? pick(user, ['phone', 'Phone', 'mobile', 'Mobile', 'phoneNumber', 'PhoneNumber']) : '') ||
+    (org ? pick(org, ['phone', 'Phone', 'contactPhone', 'ContactPhone']) : '') ||
+    ''
+
+  const planId =
+    (plan ? pick(plan, ['id', 'Id']) : '') ||
+    pick(o, ['planId', 'PlanId']) ||
     ''
 
   const planLabel =
     (plan ? pick(plan, ['displayName', 'DisplayName', 'name', 'Name']) : '') ||
     pick(o, ['planName', 'PlanName']) ||
-    pick(o, ['planId', 'PlanId']) ||
+    planId ||
     '—'
 
   return {
     id: pick(o, ['id', 'Id'], '0'),
     businessName,
     contactEmail,
+    contactPhone,
     status: String(o.status ?? o.Status ?? ''),
     planLabel,
+    planId,
     createdAt: pick(o, ['createdAt', 'CreatedAt']) || '',
     raw: o,
   }
