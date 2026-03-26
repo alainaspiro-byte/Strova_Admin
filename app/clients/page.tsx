@@ -15,7 +15,8 @@ export default function ClientsPage() {
   const load = useCallback(async () => {
     setIsLoading(true)
     try {
-      const res = await apiClient.getOrganizations({ page: 1, perPage: 500 })
+      // Usa el método enriquecido que cruza org + usuarios para obtener admin
+      const res = await apiClient.getOrganizationsWithAdmins({ page: 1, perPage: 500 })
       setRows(res.items)
       setError(null)
     } catch (e) {
@@ -59,10 +60,11 @@ export default function ClientsPage() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Organizaciones</h1>
-        <p className="text-slate-600 dark:text-white/60">
-          Datos desde <code className="text-slate-500 dark:text-white/40">GET /api/organization</code>: cada fila es la organización y
-          su administrador cuando la API lo envía anidado (<code className="text-slate-500 dark:text-white/40">adminUser</code>,{' '}
-          <code className="text-slate-500 dark:text-white/40">users[]</code>, etc.).
+        <p className="text-slate-600 dark:text-white/60 text-sm">
+          Los datos de admin se obtienen cruzando{' '}
+          <code className="text-slate-500 dark:text-white/40">GET /api/organization</code> con{' '}
+          <code className="text-slate-500 dark:text-white/40">GET /api/user</code> por{' '}
+          <code className="text-slate-500 dark:text-white/40">organizationId</code>.
         </p>
       </div>
 
@@ -127,11 +129,21 @@ export default function ClientsPage() {
                 ) : (
                   filtered.map((client) => (
                     <tr key={client.id} className="hover:bg-slate-50 dark:hover:bg-[#111827]">
-                      <td className="px-4 py-3 text-sm text-slate-900 dark:text-white font-medium">{client.organizationName}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 dark:text-white/80">{client.adminName}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/60">{client.adminEmail}</td>
+                      <td className="px-4 py-3 text-sm text-slate-900 dark:text-white font-medium">
+                        {client.organizationName}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700 dark:text-white/80">
+                        {client.adminName !== '—' ? client.adminName : (
+                          <span className="text-slate-400 dark:text-white/30 italic">Sin datos</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/60">
+                        {client.adminEmail !== '—' ? client.adminEmail : (
+                          <span className="text-slate-400 dark:text-white/30 italic">Sin datos</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-slate-600 dark:text-white/50">
-                        <div>{client.email || '—'}</div>
+                        <div>{client.email || <span className="text-slate-400 dark:text-white/30 italic">—</span>}</div>
                         <div className="text-slate-400 dark:text-white/35 text-xs">{client.phone || '—'}</div>
                       </td>
                       <td className="px-4 py-3">
@@ -163,6 +175,7 @@ export default function ClientsPage() {
         </div>
       )}
 
+      {/* Modal de detalle */}
       {(detailLoading || selected) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 dark:border-white/[0.08] max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-xl">
@@ -171,10 +184,7 @@ export default function ClientsPage() {
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">Organización y administrador</h2>
                 <button
                   type="button"
-                  onClick={() => {
-                    setSelected(null)
-                    setDetailLoading(false)
-                  }}
+                  onClick={() => { setSelected(null); setDetailLoading(false) }}
                   className="text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

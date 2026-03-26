@@ -541,6 +541,58 @@ export class ApiClient {
   }
 
   /**
+   * Carga organizaciones y usuarios en paralelo, luego cruza por organizationId
+   * para enriquecer cada fila con adminName, adminEmail y adminPhone.
+   *
+   * La API no devuelve datos del admin en GET /organization, pero cada UserResponse
+   * tiene organizationId, fullName, email y phone, lo que permite el cruce en cliente.
+   */
+  async getOrganizationsWithAdmins(params?: {
+    page?: number
+    perPage?: number
+    sortOrder?: string
+  }): Promise<PaginatedResult<OrganizationClientRow>> {
+    // Lanzar ambas llamadas en paralelo
+    const [orgsRes, usersRaw] = await Promise.all([
+      this.getOrganizations(params),
+      this.request<unknown>('/user?page=1&perPage=500').catch(() => null),
+    ])
+
+    // Construir mapa organizationId → usuario admin
+    const adminByOrgId = new Map<string, { name: string; email: string; phone: string }>()
+    if (usersRaw) {
+      const { items: userItems } = extractPaginated<unknown>(usersRaw)
+      for (const u of userItems) {
+        const user = u as Record<string, unknown>
+        const orgId = String(user.organizationId ?? user.OrganizationId ?? '')
+        if (!orgId || orgId === 'null' || orgId === 'undefined') continue
+        // Tomar el primer usuario de la org como admin (o mejorar si hay campo role)
+        if (!adminByOrgId.has(orgId)) {
+          adminByOrgId.set(orgId, {
+            name: String(user.fullName ?? user.FullName ?? '—'),
+            email: String(user.email ?? user.Email ?? '—'),
+            phone: String(user.phone ?? user.Phone ?? ''),
+          })
+        }
+      }
+    }
+
+    // Enriquecer filas de organizaciones
+    const enriched = orgsRes.items.map((org) => {
+      const admin = adminByOrgId.get(String(org.id))
+      if (!admin) return org
+      return {
+        ...org,
+        adminName: admin.name || org.adminName,
+        adminEmail: admin.email || org.adminEmail,
+        phone: org.phone || admin.phone,
+      }
+    })
+
+    return { items: enriched, total: orgsRes.total }
+  }
+
+  /**
    * GET /api/organization/id?id={id}
    * ATENCIÓN: el id va como query param, NO como path param.
    */

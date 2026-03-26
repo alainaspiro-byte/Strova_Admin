@@ -23,7 +23,6 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-
     try {
       await login(email, password)
       router.push('/')
@@ -34,56 +33,57 @@ export default function LoginPage() {
     }
   }
 
-  if (authLoading) {
+  if (authLoading || isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0a0f1c] flex items-center justify-center">
-        <p className="text-slate-600 dark:text-white/50 text-sm">Cargando…</p>
-      </div>
-    )
-  }
-
-  if (isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0a0f1c] flex items-center justify-center">
-        <p className="text-slate-600 dark:text-white/50 text-sm">Redirigiendo al panel…</p>
+      <div style={styles.root}>
+        <p style={{ color: '#94a3b8', fontSize: 14 }}>
+          {isAuthenticated ? 'Redirigiendo…' : 'Cargando…'}
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#0a0f1c] dark:to-[#1a2744] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white dark:bg-[#111827] rounded-2xl border border-slate-200 dark:border-white/10 p-8 shadow-xl dark:shadow-2xl">
-          <div className="mb-8">
-            <div className="inline-block px-3 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 mb-4">
-              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
-                Strova Suscripciones
-              </span>
+    <>
+      <style>{css}</style>
+      <div style={styles.root}>
+        {/* Fondo decorativo */}
+        <div style={styles.bgOrb1} />
+        <div style={styles.bgOrb2} />
+        <div style={styles.bgGrid} />
+
+        {/* Modal centrado */}
+        <div style={styles.card} className="login-card">
+          {/* Header */}
+          <div style={styles.cardHeader}>
+            <div style={styles.logo}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span style={styles.logoText}>Strova Admin</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Acceso Admin</h1>
-            <p className="text-sm text-slate-600 dark:text-white/50">Inicia sesión para gestionar suscripciones</p>
+            <h1 style={styles.title}>Bienvenido</h1>
+            <p style={styles.subtitle}>Inicia sesión para gestionar suscripciones</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
-                Email
-              </label>
+          {/* Formulario */}
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <div style={styles.field}>
+              <label htmlFor="email" style={styles.label}>Correo electrónico</label>
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@example.com"
+                placeholder="admin@ejemplo.com"
                 required
-                className="w-full px-4 py-2.5 bg-white dark:bg-[#1f2937] border border-slate-300 dark:border-white/10 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition"
+                style={styles.input}
+                className="login-input"
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-white mb-2">
-                Contraseña
-              </label>
+            <div style={styles.field}>
+              <label htmlFor="password" style={styles.label}>Contraseña</label>
               <input
                 id="password"
                 type="password"
@@ -91,34 +91,247 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-2.5 bg-white dark:bg-[#1f2937] border border-slate-300 dark:border-white/10 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition"
+                style={styles.input}
+                className="login-input"
               />
             </div>
 
             {error && (
-              <div className="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <div style={styles.errorBox} className="login-error">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10" stroke="#f87171" strokeWidth="2"/>
+                  <line x1="12" y1="8" x2="12" y2="12" stroke="#f87171" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="12" cy="16" r="1" fill="#f87171"/>
+                </svg>
+                <span>{error}</span>
               </div>
             )}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition duration-200"
+              style={styles.button}
+              className="login-btn"
             >
-              {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+              {isLoading ? (
+                <span style={styles.btnInner}>
+                  <span style={styles.spinner} className="spinner" />
+                  Iniciando sesión…
+                </span>
+              ) : (
+                'Iniciar sesión'
+              )}
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-white/10">
-            <p className="text-xs text-slate-500 dark:text-white/40 text-center">Panel de administración de suscripciones</p>
-          </div>
-        </div>
-
-        <div className="mt-6 p-4 rounded-lg bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs text-slate-600 dark:text-white/50 text-center">
-          <p>Usa tus credenciales de administrador</p>
+          <p style={styles.footer}>Panel de administración · Strova</p>
         </div>
       </div>
-    </div>
+    </>
   )
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  root: {
+    position: 'fixed',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#080e1d',
+    overflow: 'hidden',
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+  },
+  bgOrb1: {
+    position: 'absolute',
+    width: 600,
+    height: 600,
+    borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)',
+    top: '-10%',
+    left: '-10%',
+    pointerEvents: 'none',
+  },
+  bgOrb2: {
+    position: 'absolute',
+    width: 500,
+    height: 500,
+    borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)',
+    bottom: '-10%',
+    right: '-5%',
+    pointerEvents: 'none',
+  },
+  bgGrid: {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage: `linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)`,
+    backgroundSize: '40px 40px',
+    pointerEvents: 'none',
+  },
+  card: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: 420,
+    margin: '0 16px',
+    background: 'rgba(15, 23, 42, 0.85)',
+    backdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    padding: '40px 36px',
+    boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(59,130,246,0.05)',
+  },
+  cardHeader: {
+    marginBottom: 28,
+  },
+  logo: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    background: 'rgba(59,130,246,0.1)',
+    border: '1px solid rgba(59,130,246,0.2)',
+    borderRadius: 8,
+    padding: '5px 10px',
+    marginBottom: 20,
+  },
+  logoText: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#60a5fa',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase' as const,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: 700,
+    color: '#f1f5f9',
+    margin: '0 0 6px',
+    letterSpacing: '-0.02em',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    margin: 0,
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 16,
+  },
+  field: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 6,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: '#94a3b8',
+  },
+  input: {
+    width: '100%',
+    padding: '10px 14px',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    color: '#f1f5f9',
+    fontSize: 14,
+    outline: 'none',
+    boxSizing: 'border-box' as const,
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  },
+  errorBox: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: '10px 14px',
+    background: 'rgba(239,68,68,0.08)',
+    border: '1px solid rgba(239,68,68,0.2)',
+    borderRadius: 10,
+    color: '#fca5a5',
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+  button: {
+    width: '100%',
+    padding: '11px 0',
+    background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+    border: 'none',
+    borderRadius: 10,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'opacity 0.2s, transform 0.1s',
+    marginTop: 4,
+  },
+  btnInner: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  spinner: {
+    width: 14,
+    height: 14,
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderTopColor: '#fff',
+    borderRadius: '50%',
+    display: 'inline-block',
+  },
+  footer: {
+    marginTop: 24,
+    fontSize: 12,
+    color: '#334155',
+    textAlign: 'center' as const,
+  },
+}
+
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+
+  .login-card {
+    animation: cardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .login-input:focus {
+    border-color: rgba(59,130,246,0.5) !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important;
+  }
+  .login-input::placeholder {
+    color: #334155;
+  }
+
+  .login-btn:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+  .login-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .login-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .login-error {
+    animation: shake 0.3s ease;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25%       { transform: translateX(-4px); }
+    75%       { transform: translateX(4px); }
+  }
+
+  .spinner {
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`
