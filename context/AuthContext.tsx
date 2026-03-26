@@ -26,23 +26,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Verificar autenticación al montar el componente
+  // Al montar: verificar token contra el backend
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem('token')
-        if (token) {
-          // Aquí podrías verificar el token con el backend
-          // para ahora asumimos que si existe en localStorage es válido
-          const userData = localStorage.getItem('user')
-          if (userData) {
-            setUser(JSON.parse(userData))
-          }
+
+        if (!token) {
+          // No hay token → no está autenticado
+          setIsLoading(false)
+          return
         }
-      } catch (err) {
-        console.error('Auth check failed:', err)
+
+        // Verificar que el token sigue siendo válido en el backend
+        await apiClient.verifyToken()
+
+        // Token válido → restaurar usuario desde localStorage
+        const userData = localStorage.getItem('user')
+        if (userData) {
+          setUser(JSON.parse(userData))
+        }
+      } catch {
+        // Token inválido o expirado → limpiar sesión silenciosamente
         localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
         localStorage.removeItem('user')
+        setUser(null)
       } finally {
         setIsLoading(false)
       }
@@ -55,9 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null)
       setIsLoading(true)
+
       const response = await apiClient.login(email, password)
 
-      const userData = response.user
+      const userData: User = response.user
         ? {
             id: String(response.user.id),
             email: response.user.email,
@@ -68,11 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             id: email,
             email,
           }
-      
+
       setUser(userData)
       localStorage.setItem('user', JSON.stringify(userData))
     } catch (err) {
-      const message = errorMessage(err, 'Login failed')
+      const message = errorMessage(err, 'Error al iniciar sesión')
       setError(message)
       throw err
     } finally {
@@ -83,11 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       await apiClient.logout()
-      setUser(null)
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
     } catch (err) {
       console.error('Logout failed:', err)
+    } finally {
+      setUser(null)
+      localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
     }
   }
 

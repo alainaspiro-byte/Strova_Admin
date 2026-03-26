@@ -6,7 +6,7 @@ import { Subscription, SubscriptionStats } from '@/lib/types'
 import { StatsCards } from '@/components/StatsCards'
 import { SubscriptionsTable } from '@/components/SubscriptionsTable'
 import { RequestsTable } from '@/components/RequestsTable'
-import type { SubscriptionRequestRow } from '@/lib/mappers'
+import { attachPendingRequestIds, type SubscriptionRequestRow } from '@/lib/mappers'
 
 const DEFAULT_STATS: SubscriptionStats = {
   active: 0,
@@ -43,7 +43,7 @@ export default function SubscriptionsPage() {
           ? pendingOutcome.value
           : { items: [], total: undefined }
 
-      setSubscriptions(subsRes.items)
+      setSubscriptions(attachPendingRequestIds(subsRes.items, reqRes.items))
       setRequests(reqRes.items)
 
       const pendingCount = pendingReqRes.total ?? pendingReqRes.items.length
