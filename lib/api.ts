@@ -507,6 +507,71 @@ export class ApiClient {
     }
   }
 
+  /**
+   * Lista organizaciones y enriquece admin (nombre/email) cruzando con GET /user
+   * por organizationId cuando el listado de orgs no trae admin anidado.
+   */
+  async getOrganizationsWithAdmins(params?: {
+    page?: number
+    perPage?: number
+  }): Promise<PaginatedResult<OrganizationClientRow>> {
+    const perPage = params?.perPage ?? 500
+    const [orgRes, usersRaw] = await Promise.all([
+      this.getOrganizations(params),
+      this.getUsers({ page: 1, perPage, sortOrder: undefined }),
+    ])
+    const { items: userItems } = extractPaginated<unknown>(usersRaw)
+
+    const pickStr = (o: Record<string, unknown>, keys: string[]): string => {
+      for (const k of keys) {
+        const v = o[k]
+        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v)
+      }
+      return ''
+    }
+
+    const isAdminLike = (o: Record<string, unknown>): boolean => {
+      const r = `${o.role ?? o.Role ?? ''} ${o.roleName ?? o.RoleName ?? ''}`.toLowerCase()
+      return r.includes('admin') || r.includes('owner') || r.includes('super')
+    }
+
+    type U = { fullName: string; email: string; adminLike: boolean }
+    const byOrg = new Map<string, U>()
+
+    for (const raw of userItems) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue
+      const o = raw as Record<string, unknown>
+      const oid = o.organizationId ?? o.OrganizationId
+      if (oid === undefined || oid === null || oid === '') continue
+      const key = String(oid)
+      const fullName = pickStr(o, ['fullName', 'FullName', 'name', 'Name'])
+      const email = pickStr(o, ['email', 'Email'])
+      const adminLike = isAdminLike(o)
+      const next: U = { fullName: fullName || '—', email: email || '—', adminLike }
+      const prev = byOrg.get(key)
+      if (!prev) {
+        byOrg.set(key, next)
+      } else if (adminLike && !prev.adminLike) {
+        byOrg.set(key, next)
+      }
+    }
+
+    const items = orgRes.items.map((row) => {
+      const u = byOrg.get(row.id)
+      if (!u) return row
+      const needsName = !row.adminName || row.adminName === '—'
+      const needsEmail = !row.adminEmail || row.adminEmail === '—'
+      if (!needsName && !needsEmail) return row
+      return {
+        ...row,
+        adminName: needsName ? u.fullName : row.adminName,
+        adminEmail: needsEmail ? u.email : row.adminEmail,
+      }
+    })
+
+    return { items, total: orgRes.total }
+  }
+
   async getOrganizationDetail(id: string): Promise<OrganizationDetail> {
     const raw = await this.request<unknown>(`/organization/${encodeURIComponent(id)}`)
     return normalizeOrganizationDetail(raw)
