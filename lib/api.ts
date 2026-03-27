@@ -580,23 +580,6 @@ export class ApiClient {
     const raw = await this.request<unknown>(`/organization/${encodeURIComponent(id)}`)
     return normalizeOrganizationDetail(raw)
   }
-
-  /** GET /organization/{id} por cada id único (enriquecer suscripciones/solicitudes). */
-  async getOrganizationsByIds(ids: string[]): Promise<Map<string, OrganizationDetail>> {
-    const unique = Array.from(new Set(ids.map((x) => String(x).trim()).filter(Boolean)))
-    const map = new Map<string, OrganizationDetail>()
-    await Promise.all(
-      unique.map(async (id) => {
-        try {
-          const org = await this.getOrganizationDetail(id)
-          map.set(id, org)
-        } catch {
-          /* sin permiso o no encontrada */
-        }
-      })
-    )
-    return map
-  }
 }
 
 export const apiClient = new ApiClient()

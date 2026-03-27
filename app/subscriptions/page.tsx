@@ -5,11 +5,7 @@ import { apiClient, errorMessage } from '@/lib/api'
 import { Subscription } from '@/lib/types'
 import { SubscriptionsTable } from '@/components/SubscriptionsTable'
 import { RequestsTable } from '@/components/RequestsTable'
-import {
-  mergeSubscriptionWithOrg,
-  mergeRequestWithOrg,
-  type SubscriptionRequestRow,
-} from '@/lib/mappers'
+import type { SubscriptionRequestRow } from '@/lib/mappers'
 
 type Tab = 'subscriptions' | 'requests'
 
@@ -38,27 +34,10 @@ export default function SubscriptionsPage() {
       const reqRes =
         reqOutcome.status === 'fulfilled' ? reqOutcome.value : { items: [], total: undefined }
 
-      const orgIds = new Set<string>()
-      for (const s of subsRes.items) {
-        if (s.organizationId) orgIds.add(s.organizationId)
-      }
-      for (const r of reqRes.items) {
-        if (r.organizationId) orgIds.add(r.organizationId)
-      }
+      setSubscriptions(subsRes.items)
+      setRequests(reqRes.items)
 
-      const orgMap = await apiClient.getOrganizationsByIds(Array.from(orgIds))
-
-      const subsMerged = subsRes.items.map((s) =>
-        mergeSubscriptionWithOrg(s, orgMap.get(s.organizationId))
-      )
-      const reqMerged = reqRes.items.map((r) =>
-        mergeRequestWithOrg(r, orgMap.get(r.organizationId))
-      )
-
-      setSubscriptions(subsMerged)
-      setRequests(reqMerged)
-
-      const pending = reqMerged.filter((r) => statusLower(r.status) === 'pending').length
+      const pending = reqRes.items.filter((r) => statusLower(r.status) === 'pending').length
       setPendingCount(pending)
 
       const failed: string[] = []

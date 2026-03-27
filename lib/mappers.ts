@@ -224,6 +224,7 @@ export function normalizeSubscription(raw: unknown): Subscription {
   const org = asRecord(
     o.organization ?? o.Organization ?? o.org ?? o.Org
   )
+  const admin = asRecord(o.adminContact ?? o.AdminContact)
 
   const organizationId =
     pick(o, ['organizationId', 'OrganizationId']) ||
@@ -236,17 +237,35 @@ export function normalizeSubscription(raw: unknown): Subscription {
     (org ? pick(org, ['name', 'Name', 'businessName', 'BusinessName', 'displayName', 'DisplayName']) : '') ||
     '—'
 
+  const adminEmail = admin
+    ? pick(admin, ['email', 'Email', 'contactEmail', 'ContactEmail'])
+    : ''
+  const adminPhone = admin
+    ? pick(admin, [
+        'phone',
+        'Phone',
+        'mobile',
+        'Mobile',
+        'whatsApp',
+        'WhatsApp',
+        'whatsAppContact',
+        'WhatsAppContact',
+      ])
+    : ''
+
   const contactEmail =
     pick(o, ['contactEmail', 'ContactEmail']) ||
     (org ? pick(org, ['email', 'Email', 'contactEmail', 'ContactEmail']) : '') ||
+    adminEmail ||
     ''
 
   const contactPhone =
     pick(o, ['contactPhone', 'ContactPhone']) ||
     (org ? pick(org, ['phone', 'Phone', 'contactPhone', 'ContactPhone']) : '') ||
+    adminPhone ||
     ''
 
-  // WhatsApp: buscar en locations[] de la org anidada (LocationResponse.whatsAppContact)
+  // WhatsApp: locations[] de la org, o teléfono del adminContact
   const orgLocations = org ? (org.locations ?? org.Locations) : null
   const firstLocation = Array.isArray(orgLocations) && orgLocations.length > 0
     ? asRecord(orgLocations[0])
@@ -254,6 +273,7 @@ export function normalizeSubscription(raw: unknown): Subscription {
   const whatsAppContact =
     pick(o, ['whatsAppContact', 'WhatsAppContact']) ||
     (firstLocation ? pick(firstLocation, ['whatsAppContact', 'WhatsAppContact']) : '') ||
+    adminPhone ||
     ''
 
   const planObj = o.plan ?? o.Plan
@@ -297,7 +317,7 @@ export function normalizeSubscription(raw: unknown): Subscription {
     ]) || null
 
   let remainingDays: number | null = null
-  const rd = o.remainingDays ?? o.RemainingDays
+  const rd = o.remainingDays ?? o.RemainingDays ?? o.daysRemaining ?? o.DaysRemaining
   if (typeof rd === 'number' && Number.isFinite(rd)) remainingDays = rd
   else if (typeof rd === 'string' && rd.trim() !== '') {
     const n = parseInt(rd, 10)
@@ -336,7 +356,7 @@ export interface SubscriptionRequestRow {
   organizationId: string
   businessName: string
   contactEmail: string
-  /** WhatsApp o teléfono (contactInfo) tras enriquecer con GET /organization/{id} */
+  /** WhatsApp o teléfono (org locations / adminContact en la respuesta de solicitudes) */
   whatsAppContact: string
   status: string
   planLabel: string
@@ -349,6 +369,7 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
   const o = asRecord(unwrapped) ?? {}
   const org = asRecord(o.organization ?? o.Organization)
   const plan = asRecord(o.plan ?? o.Plan)
+  const admin = asRecord(o.adminContact ?? o.AdminContact)
 
   const organizationId =
     pick(o, ['organizationId', 'OrganizationId']) ||
@@ -360,9 +381,30 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
     (org ? pick(org, ['name', 'Name', 'displayName', 'DisplayName']) : '') ||
     '—'
 
+  const adminPhone = admin
+    ? pick(admin, [
+        'phone',
+        'Phone',
+        'mobile',
+        'Mobile',
+        'whatsApp',
+        'WhatsApp',
+        'whatsAppContact',
+        'WhatsAppContact',
+      ])
+    : ''
+  const orgLocations = org ? (org.locations ?? org.Locations) : null
+  const firstLocation = Array.isArray(orgLocations) && orgLocations.length > 0
+    ? asRecord(orgLocations[0])
+    : null
+  const locWa = firstLocation
+    ? pick(firstLocation, ['whatsAppContact', 'WhatsAppContact'])
+    : ''
+
   const contactEmail =
     pick(o, ['contactEmail', 'ContactEmail']) ||
     (org ? pick(org, ['email', 'Email']) : '') ||
+    (admin ? pick(admin, ['email', 'Email']) : '') ||
     ''
 
   const planLabel =
@@ -372,13 +414,14 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
     '—'
 
   const statusStr = String(o.status ?? o.Status ?? '').trim()
+  const whats = pick(o, ['whatsAppContact', 'WhatsAppContact']) || locWa || adminPhone
 
   return {
     id: pick(o, ['id', 'Id'], '0'),
     organizationId,
     businessName,
     contactEmail,
-    whatsAppContact: '',
+    whatsAppContact: whats,
     status: statusStr,
     planLabel,
     createdAt: pick(o, ['createdAt', 'CreatedAt']) || '',
@@ -386,7 +429,7 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
   }
 }
 
-/** Combina datos de GET /organization/{id} con una fila de suscripción. */
+/** Opcional: combina detalle de organización con una fila ya normalizada (p. ej. mocks). */
 export function mergeSubscriptionWithOrg(
   sub: Subscription,
   org: OrganizationDetail | null | undefined
@@ -413,7 +456,7 @@ export function mergeSubscriptionWithOrg(
   }
 }
 
-/** Combina GET /organization/{id} con una solicitud. */
+/** Opcional: combina detalle de organización con una solicitud (p. ej. mocks). */
 export function mergeRequestWithOrg(
   row: SubscriptionRequestRow,
   org: OrganizationDetail | null | undefined

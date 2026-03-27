@@ -5,7 +5,7 @@ export type Plan = 'basic' | 'pro' | 'enterprise' | string
 
 export interface Subscription {
   id: string
-  /** GET /api/subscription — id de organización */
+  /** Id de organización (anidada en la respuesta de GET /subscription) */
   organizationId: string
   businessName: string
   contactEmail: string
