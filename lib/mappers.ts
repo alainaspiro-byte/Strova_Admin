@@ -70,24 +70,7 @@ export function extractPaginated<T>(raw: unknown): { items: T[]; total?: number 
   const o = asRecord(raw)
   if (!o) return { items: [] }
 
-  const directArrays = [
-    o.result,
-    o.Result,
-    o.data,
-    o.Data,
-    o.items,
-    o.Items,
-    o.results,
-    o.Results,
-    o.organizations,
-    o.Organizations,
-    o.organization,
-    o.Organization,
-    o.clients,
-    o.Clients,
-    o.values,
-    o.Values,
-  ]
+  const directArrays = [o.result, o.Result, o.data, o.Data, o.items, o.Items, o.results, o.Results]
   for (const c of directArrays) {
     if (Array.isArray(c)) return { items: c as T[], total: totalFrom(o) }
   }
@@ -117,22 +100,6 @@ function tryArrayFromRecord(rec: Record<string, unknown>): unknown[] | null {
     'Subscriptions',
     'requests',
     'Requests',
-    'organizations',
-    'Organizations',
-    'organizationList',
-    'OrganizationList',
-    'clients',
-    'Clients',
-    'rows',
-    'Rows',
-    'records',
-    'Records',
-    'content',
-    'Content',
-    'values',
-    'Values',
-    'value',
-    'Value',
   ]
   for (const k of keys) {
     const v = rec[k]
@@ -247,35 +214,6 @@ export function normalizeLoginUserFromResponse(raw: unknown): {
   }
 }
 
-/** Id de solicitud de suscripción: directo en la raíz o dentro de un objeto anidado. */
-function pickSubscriptionRequestId(o: Record<string, unknown>): string | undefined {
-  const direct = pick(o, [
-    'subscriptionRequestId',
-    'SubscriptionRequestId',
-    'requestId',
-    'RequestId',
-    'pendingRequestId',
-    'PendingRequestId',
-  ])
-  if (direct) return direct
-  const nestedKeys = [
-    'subscriptionRequest',
-    'SubscriptionRequest',
-    'pendingRequest',
-    'PendingRequest',
-    'subscriptionRequestDto',
-    'SubscriptionRequestDto',
-  ]
-  for (const k of nestedKeys) {
-    const n = asRecord(o[k])
-    if (n) {
-      const id = pick(n, ['id', 'Id'])
-      if (id) return id
-    }
-  }
-  return undefined
-}
-
 /**
  * Normaliza un objeto de suscripción devuelto por la API (camelCase o PascalCase).
  */
@@ -303,6 +241,16 @@ export function normalizeSubscription(raw: unknown): Subscription {
     (org ? pick(org, ['phone', 'Phone', 'contactPhone', 'ContactPhone']) : '') ||
     ''
 
+  // WhatsApp: buscar en locations[] de la org anidada (LocationResponse.whatsAppContact)
+  const orgLocations = org ? (org.locations ?? org.Locations) : null
+  const firstLocation = Array.isArray(orgLocations) && orgLocations.length > 0
+    ? asRecord(orgLocations[0])
+    : null
+  const whatsAppContact =
+    pick(o, ['whatsAppContact', 'WhatsAppContact']) ||
+    (firstLocation ? pick(firstLocation, ['whatsAppContact', 'WhatsAppContact']) : '') ||
+    ''
+
   const planObj = o.plan ?? o.Plan
   const planRec = asRecord(planObj)
   const planId =
@@ -326,7 +274,8 @@ export function normalizeSubscription(raw: unknown): Subscription {
     'CurrentPrice',
   ])
 
-  const requestId = pickSubscriptionRequestId(o) || undefined
+  const requestId =
+    pick(o, ['subscriptionRequestId', 'SubscriptionRequestId', 'requestId', 'RequestId']) || undefined
 
   return {
     id: pick(o, ['id', 'Id'], '0'),
@@ -356,10 +305,8 @@ export interface SubscriptionRequestRow {
   id: string
   businessName: string
   contactEmail: string
-  contactPhone: string
   status: string
   planLabel: string
-  planId: string
   createdAt: string
   raw: Record<string, unknown>
 }
@@ -369,9 +316,6 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
   const o = asRecord(unwrapped) ?? {}
   const org = asRecord(o.organization ?? o.Organization)
   const plan = asRecord(o.plan ?? o.Plan)
-  const user = asRecord(
-    o.user ?? o.User ?? o.admin ?? o.Admin ?? o.owner ?? o.Owner
-  )
 
   const businessName =
     pick(o, ['businessName', 'BusinessName']) ||
@@ -379,91 +323,25 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
     '—'
 
   const contactEmail =
-    pick(o, ['contactEmail', 'ContactEmail', 'email', 'Email']) ||
-    (user ? pick(user, ['email', 'Email']) : '') ||
-    (org ? pick(org, ['email', 'Email', 'contactEmail', 'ContactEmail']) : '') ||
-    ''
-
-  const contactPhone =
-    pick(o, ['contactPhone', 'ContactPhone', 'phone', 'Phone']) ||
-    (user ? pick(user, ['phone', 'Phone', 'mobile', 'Mobile', 'phoneNumber', 'PhoneNumber']) : '') ||
-    (org ? pick(org, ['phone', 'Phone', 'contactPhone', 'ContactPhone']) : '') ||
-    ''
-
-  const planId =
-    (plan ? pick(plan, ['id', 'Id']) : '') ||
-    pick(o, ['planId', 'PlanId']) ||
+    pick(o, ['contactEmail', 'ContactEmail']) ||
+    (org ? pick(org, ['email', 'Email']) : '') ||
     ''
 
   const planLabel =
     (plan ? pick(plan, ['displayName', 'DisplayName', 'name', 'Name']) : '') ||
     pick(o, ['planName', 'PlanName']) ||
-    planId ||
+    pick(o, ['planId', 'PlanId']) ||
     '—'
 
   return {
     id: pick(o, ['id', 'Id'], '0'),
     businessName,
     contactEmail,
-    contactPhone,
     status: String(o.status ?? o.Status ?? ''),
     planLabel,
-    planId,
     createdAt: pick(o, ['createdAt', 'CreatedAt']) || '',
     raw: o,
   }
-}
-
-function isPendingSubscriptionRequestRow(r: SubscriptionRequestRow): boolean {
-  const s = String(r.status ?? '').toLowerCase().trim()
-  if (!s) return false
-  if (s === 'pending' || s === '0' || s === 'waiting' || s === 'submitted' || s === 'new') return true
-  if (s.includes('pending') || s.includes('pendiente')) return true
-  return false
-}
-
-/**
- * Cuando GET /subscription no incluye el id de solicitud, enlaza filas pendientes
- * con GET /subscription/requests (mismo subscriptionId o mismo email de contacto).
- */
-export function attachPendingRequestIds(
-  subs: Subscription[],
-  requests: SubscriptionRequestRow[]
-): Subscription[] {
-  const pending = requests.filter(isPendingSubscriptionRequestRow)
-  const used = new Set<string>()
-
-  return subs.map((s) => {
-    if (s.status !== 'pending' || s.requestId) return s
-
-    const bySubId = pending.find((r) => {
-      if (used.has(r.id)) return false
-      const sid =
-        r.raw['subscriptionId'] ??
-        r.raw['SubscriptionId'] ??
-        r.raw['subscriptionID']
-      return sid != null && String(sid) === s.id
-    })
-    if (bySubId) {
-      used.add(bySubId.id)
-      return { ...s, requestId: bySubId.id }
-    }
-
-    const email = s.contactEmail?.toLowerCase().trim()
-    if (!email) return s
-
-    const byEmail = pending.find((r) => {
-      if (used.has(r.id)) return false
-      const re = r.contactEmail?.toLowerCase().trim()
-      return !!re && re === email
-    })
-    if (byEmail) {
-      used.add(byEmail.id)
-      return { ...s, requestId: byEmail.id }
-    }
-
-    return s
-  })
 }
 
 export function normalizePlan(raw: unknown): SubscriptionPlan {
@@ -498,41 +376,6 @@ export function normalizePlan(raw: unknown): SubscriptionPlan {
   }
 }
 
-function pickUserEmail(u: Record<string, unknown>): string {
-  return pick(u, [
-    'email',
-    'Email',
-    'userEmail',
-    'UserEmail',
-    'mail',
-    'Mail',
-    'emailAddress',
-    'EmailAddress',
-    'userName',
-    'UserName',
-  ])
-}
-
-function pickUserPhone(u: Record<string, unknown>): string {
-  return pick(u, [
-    'phone',
-    'Phone',
-    'mobile',
-    'Mobile',
-    'telephone',
-    'Telephone',
-    'cellPhone',
-    'CellPhone',
-    'phoneNumber',
-    'PhoneNumber',
-  ])
-}
-
-function firstUserFromArray(arr: unknown): Record<string, unknown> | null {
-  if (!Array.isArray(arr) || arr.length === 0) return null
-  return asRecord(arr[0])
-}
-
 function findAdminUser(o: Record<string, unknown>): Record<string, unknown> | null {
   const directKeys = [
     'adminUser',
@@ -545,26 +388,17 @@ function findAdminUser(o: Record<string, unknown>): Record<string, unknown> | nu
     'Owner',
     'primaryUser',
     'PrimaryUser',
-    'user',
-    'User',
-    'contact',
-    'Contact',
-    'responsible',
-    'Responsible',
-    'representative',
-    'Representative',
   ]
   for (const k of directKeys) {
     const r = asRecord(o[k])
     if (r && Object.keys(r).length) return r
   }
-  const userArrays = [o.users ?? o.Users, o.members ?? o.Members, o.organizationUsers ?? o.OrganizationUsers]
-  for (const users of userArrays) {
-    if (!Array.isArray(users)) continue
+  const users = o.users ?? o.Users
+  if (Array.isArray(users)) {
     for (const u of users) {
       const ur = asRecord(u)
       if (!ur) continue
-      const role = String(ur.role ?? ur.Role ?? ur.roleName ?? ur.RoleName ?? '').toLowerCase()
+      const role = String(ur.role ?? ur.Role ?? ur.roleName ?? '').toLowerCase()
       if (
         role.includes('admin') ||
         role.includes('owner') ||
@@ -574,35 +408,9 @@ function findAdminUser(o: Record<string, unknown>): Record<string, unknown> | nu
         return ur
       }
     }
-    const first = firstUserFromArray(users)
+    const first = asRecord(users[0])
     if (first) return first
   }
-  return null
-}
-
-function findAdminUserMerged(o: Record<string, unknown>): Record<string, unknown> | null {
-  const fromRoot = findAdminUser(o)
-  if (fromRoot) return fromRoot
-
-  const nestedOrg = asRecord(o.organization ?? o.Organization ?? o.org ?? o.Org)
-  if (nestedOrg) {
-    const fromNested = findAdminUser(nestedOrg)
-    if (fromNested) return fromNested
-    const nestedContact = asRecord(
-      nestedOrg.contact ?? nestedOrg.Contact ?? nestedOrg.contactInfo ?? nestedOrg.ContactInfo
-    )
-    if (nestedContact) {
-      const fromContact = findAdminUser(nestedContact)
-      if (fromContact) return fromContact
-    }
-  }
-
-  const rootContact = asRecord(o.contact ?? o.Contact ?? o.contactInfo ?? o.ContactInfo)
-  if (rootContact) {
-    const fromRc = findAdminUser(rootContact)
-    if (fromRc) return fromRc
-  }
-
   return null
 }
 
@@ -621,109 +429,46 @@ function normalizeOrgAccountStatus(v: unknown): 'active' | 'inactive' {
   return 'active'
 }
 
-const ORG_NAME_KEYS = [
-  'name',
-  'Name',
-  'displayName',
-  'DisplayName',
-  'businessName',
-  'BusinessName',
-  'companyName',
-  'CompanyName',
-  'organizationName',
-  'OrganizationName',
-] as const
-
-const ORG_EMAIL_KEYS = [
-  'email',
-  'Email',
-  'contactEmail',
-  'ContactEmail',
-  'mail',
-  'Mail',
-  'primaryEmail',
-  'PrimaryEmail',
-  'userEmail',
-  'UserEmail',
-] as const
-
-const ORG_PHONE_KEYS = [
-  'phone',
-  'Phone',
-  'contactPhone',
-  'ContactPhone',
-  'mobile',
-  'Mobile',
-  'telephone',
-  'Telephone',
-  'cellPhone',
-  'CellPhone',
-  'phoneNumber',
-  'PhoneNumber',
-] as const
-
-function pickFromRecord(r: Record<string, unknown>, keys: readonly string[]): string {
-  return pick(r, [...keys])
-}
-
 export function normalizeOrganizationRow(raw: unknown): OrganizationClientRow {
   const o = asRecord(unwrapApiEntity(raw)) ?? asRecord(raw) ?? {}
-  const nestedOrg = asRecord(o.organization ?? o.Organization ?? o.org ?? o.Org)
-  const rootContact = asRecord(o.contact ?? o.Contact ?? o.contactInfo ?? o.ContactInfo)
-  const nestedContact = nestedOrg
-    ? asRecord(nestedOrg.contact ?? nestedOrg.Contact ?? nestedOrg.contactInfo ?? nestedOrg.ContactInfo)
-    : null
-
-  const admin = findAdminUserMerged(o)
+  const admin = findAdminUser(o)
 
   const organizationName =
-    pickFromRecord(o, ORG_NAME_KEYS) ||
-    (nestedOrg ? pickFromRecord(nestedOrg, ORG_NAME_KEYS) : '') ||
-    '—'
+    pick(o, [
+      'name',
+      'Name',
+      'displayName',
+      'DisplayName',
+      'businessName',
+      'BusinessName',
+      'companyName',
+      'CompanyName',
+      'organizationName',
+      'OrganizationName',
+    ]) || '—'
 
-  const orgEmail =
-    pickFromRecord(o, ORG_EMAIL_KEYS) ||
-    (nestedOrg ? pickFromRecord(nestedOrg, ORG_EMAIL_KEYS) : '') ||
-    (rootContact ? pickFromRecord(rootContact, ORG_EMAIL_KEYS) : '') ||
-    (nestedContact ? pickFromRecord(nestedContact, ORG_EMAIL_KEYS) : '')
+  const orgEmail = pick(o, ['email', 'Email', 'contactEmail', 'ContactEmail'])
+  const orgPhone = pick(o, ['phone', 'Phone', 'contactPhone', 'ContactPhone'])
 
-  const orgPhone =
-    pickFromRecord(o, ORG_PHONE_KEYS) ||
-    (nestedOrg ? pickFromRecord(nestedOrg, ORG_PHONE_KEYS) : '') ||
-    (rootContact ? pickFromRecord(rootContact, ORG_PHONE_KEYS) : '') ||
-    (nestedContact ? pickFromRecord(nestedContact, ORG_PHONE_KEYS) : '')
+  // WhatsApp: desde locations[] (LocationResponse.whatsAppContact)
+  const orgLocations = o.locations ?? o.Locations
+  const firstOrgLocation = Array.isArray(orgLocations) && orgLocations.length > 0
+    ? asRecord(orgLocations[0])
+    : null
+  const orgWhatsApp = firstOrgLocation
+    ? pick(firstOrgLocation, ['whatsAppContact', 'WhatsAppContact'])
+    : ''
 
   const adminName = admin
-    ? pick(admin, [
-        'fullName',
-        'FullName',
-        'name',
-        'Name',
-        'displayName',
-        'DisplayName',
-        'userName',
-        'UserName',
-      ])
+    ? pick(admin, ['fullName', 'FullName', 'name', 'Name', 'displayName', 'DisplayName'])
     : ''
-  const adminEmail = admin ? pickUserEmail(admin) : ''
-  const adminPhone = admin ? pickUserPhone(admin) : ''
+  const adminEmail = admin ? pick(admin, ['email', 'Email']) : ''
+  const adminPhone = admin ? pick(admin, ['phone', 'Phone']) : ''
 
   const statusRaw = o.status ?? o.Status ?? o.accountStatus ?? o.AccountStatus ?? o.state ?? o.State
-  const nestedStatus =
-    nestedOrg &&
-    (nestedOrg.status ?? nestedOrg.Status ?? nestedOrg.accountStatus ?? nestedOrg.AccountStatus)
   const accountStatus = normalizeOrgAccountStatus(
-    o.isActive === false || o.IsActive === false
-      ? 'inactive'
-      : nestedOrg && (nestedOrg.isActive === false || nestedOrg.IsActive === false)
-        ? 'inactive'
-        : statusRaw ?? nestedStatus
+    o.isActive === false || o.IsActive === false ? 'inactive' : statusRaw
   )
-
-  const createdAt =
-    pick(o, ['createdAt', 'CreatedAt', 'created', 'Created']) ||
-    (nestedOrg ? pick(nestedOrg, ['createdAt', 'CreatedAt', 'created', 'Created']) : '') ||
-    ''
 
   return {
     id: pick(o, ['id', 'Id'], '0'),
@@ -733,17 +478,17 @@ export function normalizeOrganizationRow(raw: unknown): OrganizationClientRow {
     accountStatus,
     adminName: adminName || '—',
     adminEmail: adminEmail || '—',
-    createdAt,
+    createdAt: pick(o, ['createdAt', 'CreatedAt']) || '',
   }
 }
 
 export function normalizeOrganizationDetail(raw: unknown): OrganizationDetail {
   const row = normalizeOrganizationRow(raw)
   const o = asRecord(unwrapApiEntity(raw)) ?? asRecord(raw) ?? {}
-  const admin = findAdminUserMerged(o)
+  const admin = findAdminUser(o)
   return {
     ...row,
-    adminPhone: admin ? pickUserPhone(admin) || undefined : undefined,
+    adminPhone: admin ? pick(admin, ['phone', 'Phone']) || undefined : undefined,
     raw: o,
   }
 }

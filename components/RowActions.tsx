@@ -24,16 +24,22 @@ function sanitizePhone(phone: string): string {
   return phone.replace(/\D/g, '')
 }
 
-function buildWaUrl(sub: Subscription): { url: string; hasPhone: boolean } {
+function buildWaUrl(sub: Subscription): { url: string; hasPhone: boolean; phone: string } {
   const plan = planDisplay(sub)
   const msg =
     sub.status === 'pending'
       ? `Hola ${sub.businessName}, te contactamos desde Strova.\n\nTu solicitud del plan ${plan} ($${sub.amount}/mes) est\u00e1 lista. \u00bfC\u00f3mo prefieres pagar: efectivo o transferencia?`
       : `Hola ${sub.businessName}, tu plan ${plan} en Strova vence pronto. \u00bfDeseas renovar por $${sub.amount} m\u00e1s?`
 
-  const phone = sanitizePhone(sub.contactPhone || '')
-  if (!phone) return { url: '#', hasPhone: false }
-  return { url: `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, hasPhone: true }
+  // Prioridad: whatsAppContact de la ubicación > contactPhone de la suscripción
+  const rawPhone = sub.whatsAppContact || sub.contactPhone || ''
+  const phone = sanitizePhone(rawPhone)
+  if (!phone) return { url: '#', hasPhone: false, phone: '' }
+  return {
+    url: `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,
+    hasPhone: true,
+    phone: rawPhone,
+  }
 }
 
 interface Props {
@@ -99,7 +105,7 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
           href={wa.url}
           target={wa.hasPhone ? '_blank' : undefined}
           rel="noopener noreferrer"
-          title={wa.hasPhone ? `WhatsApp: ${sub.contactPhone}` : 'Sin teléfono registrado'}
+          title={wa.hasPhone ? `WhatsApp: ${wa.phone}` : 'Sin teléfono registrado'}
           onClick={!wa.hasPhone ? (e) => e.preventDefault() : undefined}
           className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${wa.hasPhone ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' : 'bg-slate-500/10 text-slate-400 cursor-not-allowed opacity-40'}`}
         >

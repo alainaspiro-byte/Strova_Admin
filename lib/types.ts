@@ -8,6 +8,8 @@ export interface Subscription {
   businessName: string
   contactEmail: string
   contactPhone: string
+  /** WhatsApp del negocio, desde locations[0].whatsAppContact de la org */
+  whatsAppContact?: string
   plan: Plan
   /** Nombre legible del plan desde la API */
   planName?: string
@@ -51,6 +53,8 @@ export interface OrganizationClientRow {
   accountStatus: 'active' | 'inactive'
   adminName: string
   adminEmail: string
+  /** WhatsApp de la primera ubicación de la org */
+  whatsAppContact?: string
   createdAt: string
 }
 
