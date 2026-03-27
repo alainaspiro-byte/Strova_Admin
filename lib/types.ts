@@ -5,18 +5,23 @@ export type Plan = 'basic' | 'pro' | 'enterprise' | string
 
 export interface Subscription {
   id: string
+  /** GET /api/subscription — id de organización */
+  organizationId: string
   businessName: string
   contactEmail: string
   contactPhone: string
-  /** WhatsApp del negocio, desde locations[0].whatsAppContact de la org */
+  /** WhatsApp del negocio (contactInfo.whatsapp o teléfono) */
   whatsAppContact?: string
   plan: Plan
-  /** Nombre legible del plan desde la API */
+  /** Nombre del plan tal como lo devuelve la API (planName) */
   planName?: string
   planId?: string
   /** Si la fila enlaza con una solicitud, permite aprobar/rechazar por este id */
   requestId?: string
-  status: SubscriptionStatus
+  /** Estado exacto devuelto por la API (filtros y etiquetas) */
+  status: string
+  /** Días restantes desde la API (remainingDays), si existen */
+  remainingDays?: number | null
   paymentMethod: PaymentMethod
   amount: number
   startsAt: string | null

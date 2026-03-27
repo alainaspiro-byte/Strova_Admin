@@ -9,10 +9,10 @@ type Tab = 'all' | SubscriptionStatus
 type ExpirationFilter = 'all' | 'expiring-soon' | 'expired'
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'all',       label: 'Todas' },
-  { key: 'pending',   label: 'Pendientes' },
-  { key: 'active',    label: 'Activas' },
-  { key: 'expired',   label: 'Vencidas' },
+  { key: 'all', label: 'Todas' },
+  { key: 'pending', label: 'Pendientes' },
+  { key: 'active', label: 'Activas' },
+  { key: 'expired', label: 'Vencidas' },
   { key: 'cancelled', label: 'Canceladas' },
 ]
 
@@ -24,6 +24,31 @@ const EXPIRATION_FILTERS: { key: ExpirationFilter; label: string }[] = [
 
 const shell =
   'bg-white dark:bg-[#111827] rounded-xl border border-slate-200 shadow-sm dark:border-white/[0.06] dark:shadow-none overflow-hidden'
+
+function statusMatchesTab(status: string, tab: Tab): boolean {
+  if (tab === 'all') return true
+  return String(status ?? '').trim().toLowerCase() === tab
+}
+
+function sanitizePhone(phone: string): string {
+  return phone.replace(/\D/g, '')
+}
+
+function emptyMessage(tab: Tab, hasSearch: boolean): string {
+  if (hasSearch) return 'No hay resultados para tu búsqueda'
+  switch (tab) {
+    case 'pending':
+      return 'No hay suscripciones pendientes 🎉'
+    case 'active':
+      return 'No hay suscripciones activas'
+    case 'expired':
+      return 'No hay suscripciones vencidas'
+    case 'cancelled':
+      return 'No hay suscripciones canceladas'
+    default:
+      return 'No hay suscripciones registradas'
+  }
+}
 
 export function SubscriptionsTable({
   initial,
@@ -43,43 +68,55 @@ export function SubscriptionsTable({
   const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>('all')
   const [search, setSearch] = useState('')
 
-  const counts = useMemo(() => ({
-    all: data.length,
-    pending:   data.filter((s) => s.status === 'pending').length,
-    active:    data.filter((s) => s.status === 'active').length,
-    expired:   data.filter((s) => s.status === 'expired').length,
-    cancelled: data.filter((s) => s.status === 'cancelled').length,
-  }), [data])
+  const counts = useMemo(
+    () => ({
+      all: data.length,
+      pending: data.filter((s) => statusMatchesTab(s.status, 'pending')).length,
+      active: data.filter((s) => statusMatchesTab(s.status, 'active')).length,
+      expired: data.filter((s) => statusMatchesTab(s.status, 'expired')).length,
+      cancelled: data.filter((s) => statusMatchesTab(s.status, 'cancelled')).length,
+    }),
+    [data]
+  )
 
   /** Planes únicos presentes en los datos actuales */
   const planOptions = useMemo(() => {
     const seen = new Map<string, string>()
     data.forEach((s) => {
-      const key = s.planId ?? s.plan
+      const key = s.planId ?? s.planName ?? s.plan
       if (!key) return
-      const label = s.planName || s.plan
-      seen.set(key, label)
+      const label = s.planName || String(s.plan)
+      seen.set(String(key), label)
     })
     return Array.from(seen.entries()).map(([key, label]) => ({ key, label }))
   }, [data])
 
-  const filtered = useMemo(() =>
-    data.filter((s) => {
-      if (tab !== 'all' && s.status !== tab) return false
-      if (planFilter !== 'all') {
-        const key = s.planId ?? s.plan
-        if (key !== planFilter) return false
-      }
-      if (expirationFilter !== 'all') {
-        const days = daysUntil(s.expiresAt)
-        if (expirationFilter === 'expiring-soon' && (days === null || days > 7 || days < 0)) return false
-        if (expirationFilter === 'expired' && (days === null || days >= 0)) return false
-      }
-      if (search && !s.businessName.toLowerCase().includes(search.toLowerCase()) &&
-          !s.contactEmail.toLowerCase().includes(search.toLowerCase())) return false
-      return true
-    }),
-  [data, tab, planFilter, expirationFilter, search])
+  const filtered = useMemo(
+    () =>
+      data.filter((s) => {
+        if (!statusMatchesTab(s.status, tab)) return false
+        if (planFilter !== 'all') {
+          const key = String(s.planId ?? s.planName ?? s.plan ?? '')
+          if (key !== planFilter) return false
+        }
+        if (expirationFilter !== 'all') {
+          const rd =
+            s.remainingDays !== undefined && s.remainingDays !== null
+              ? s.remainingDays
+              : daysUntil(s.expiresAt)
+          if (expirationFilter === 'expiring-soon' && (rd === null || rd > 7 || rd < 0)) return false
+          if (expirationFilter === 'expired' && (rd === null || rd >= 0)) return false
+        }
+        if (search) {
+          const q = search.toLowerCase()
+          const name = (s.businessName || '').toLowerCase()
+          const mail = (s.contactEmail || '').toLowerCase()
+          if (!name.includes(q) && !mail.includes(q)) return false
+        }
+        return true
+      }),
+    [data, tab, planFilter, expirationFilter, search]
+  )
 
   return (
     <div className={shell}>
@@ -87,7 +124,7 @@ export function SubscriptionsTable({
       <div className="px-4 py-3 border-b border-slate-200 dark:border-white/[0.06] space-y-3">
         {/* Tabs */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex gap-0.5">
+          <div className="flex gap-0.5 flex-wrap">
             {TABS.map((t) => (
               <button
                 key={t.key}
@@ -111,10 +148,18 @@ export function SubscriptionsTable({
           </div>
 
           <div className="relative">
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-white/20"
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            <svg
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-white/20"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+              />
             </svg>
             <input
               type="text"
@@ -134,7 +179,9 @@ export function SubscriptionsTable({
             onChange={(e) => setPlanFilter(e.target.value)}
             className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors cursor-pointer dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/70"
           >
-            <option value="all" className="bg-white dark:bg-[#111827]">Todos los planes</option>
+            <option value="all" className="bg-white dark:bg-[#111827]">
+              Todos los planes
+            </option>
             {planOptions.map((f) => (
               <option key={f.key} value={f.key} className="bg-white dark:bg-[#111827]">
                 {f.label}
@@ -173,7 +220,7 @@ export function SubscriptionsTable({
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/[0.04]">
-              {['Negocio', 'Plan', 'Estado', 'Vencimiento', 'Acciones'].map((h) => (
+              {['Negocio', 'Email', 'Plan', 'Estado', 'Vencimiento', 'WhatsApp', 'Acciones'].map((h) => (
                 <th
                   key={h}
                   className="text-left text-[10px] font-semibold text-slate-400 dark:text-white/20 uppercase tracking-widest px-4 py-3"
@@ -186,14 +233,23 @@ export function SubscriptionsTable({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-16 text-sm text-slate-400 dark:text-white/20">
-                  No hay resultados
+                <td colSpan={7} className="text-center py-16 text-sm text-slate-400 dark:text-white/20">
+                  {emptyMessage(tab, Boolean(search))}
                 </td>
               </tr>
             ) : (
               filtered.map((sub, i) => {
-                const days = daysUntil(sub.expiresAt)
+                const daysFromApi =
+                  sub.remainingDays !== undefined && sub.remainingDays !== null ? sub.remainingDays : null
+                const days = daysFromApi !== null ? daysFromApi : daysUntil(sub.expiresAt)
                 const soonExpiring = days !== null && days <= 7 && days > 0
+                const rawWa =
+                  (sub.whatsAppContact && sub.whatsAppContact !== '—' ? sub.whatsAppContact : '') ||
+                  sub.contactPhone ||
+                  ''
+                const waDigits = sanitizePhone(rawWa)
+                const waUrl = waDigits ? `https://wa.me/${waDigits}` : '#'
+
                 return (
                   <tr
                     key={sub.id}
@@ -201,36 +257,42 @@ export function SubscriptionsTable({
                       i === filtered.length - 1 ? 'border-b-0' : ''
                     }`}
                   >
-                    {/* Negocio */}
                     <td className="px-4 py-3.5">
-                      <div className="font-medium text-sm text-slate-800 dark:text-white/80">{sub.businessName}</div>
-                      <div className="text-xs text-slate-500 dark:text-white/30 mt-0.5">{sub.contactEmail}</div>
-                      <div className="text-xs text-slate-400 dark:text-white/20 mt-0.5">{sub.contactPhone}</div>
+                      <div className="font-medium text-sm text-slate-800 dark:text-white/80">
+                        {sub.businessName || '—'}
+                      </div>
                       {sub.notes && (
                         <div className="text-xs text-amber-400/70 mt-1 flex items-center gap-1">
                           <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                            <path
+                              fillRule="evenodd"
+                              d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                           <span className="truncate max-w-[180px]">{sub.notes}</span>
                         </div>
                       )}
                     </td>
 
-                    {/* Plan */}
+                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-white/50">
+                      {sub.contactEmail && sub.contactEmail !== '—' ? sub.contactEmail : '—'}
+                    </td>
+
                     <td className="px-4 py-3.5">
                       <PlanBadge plan={sub.plan} planLabel={sub.planName} amount={sub.amount} />
                     </td>
 
-                    {/* Estado */}
                     <td className="px-4 py-3.5">
                       <StatusBadge status={sub.status} />
                     </td>
 
-                    {/* Vencimiento */}
                     <td className="px-4 py-3.5">
                       <div
                         className={`text-xs font-medium ${
-                          soonExpiring ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-white/50'
+                          soonExpiring
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-slate-600 dark:text-white/50'
                         }`}
                       >
                         {formatDate(sub.expiresAt)}
@@ -250,7 +312,21 @@ export function SubscriptionsTable({
                       )}
                     </td>
 
-                    {/* Acciones */}
+                    <td className="px-4 py-3.5 text-xs">
+                      {waDigits ? (
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-500 hover:underline"
+                        >
+                          {rawWa || waDigits}
+                        </a>
+                      ) : (
+                        <span className="text-slate-400 dark:text-white/25">—</span>
+                      )}
+                    </td>
+
                     <td className="px-4 py-3.5">
                       <RowActions sub={sub} onRemoteUpdate={onRemoteUpdate} />
                     </td>

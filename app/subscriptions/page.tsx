@@ -5,9 +5,17 @@ import { apiClient, errorMessage } from '@/lib/api'
 import { Subscription } from '@/lib/types'
 import { SubscriptionsTable } from '@/components/SubscriptionsTable'
 import { RequestsTable } from '@/components/RequestsTable'
-import type { SubscriptionRequestRow } from '@/lib/mappers'
+import {
+  mergeSubscriptionWithOrg,
+  mergeRequestWithOrg,
+  type SubscriptionRequestRow,
+} from '@/lib/mappers'
 
 type Tab = 'subscriptions' | 'requests'
+
+function statusLower(s: string): string {
+  return String(s ?? '').trim().toLowerCase()
+}
 
 export default function SubscriptionsPage() {
   const [tab, setTab] = useState<Tab>('subscriptions')
@@ -21,9 +29,7 @@ export default function SubscriptionsPage() {
     setIsLoading(true)
     try {
       const [subsOutcome, reqOutcome] = await Promise.allSettled([
-        // Suscripciones: excluir 'pending' — esos son solicitudes, no contratos activos
         apiClient.getSubscriptions({ page: 1, perPage: 500 }),
-        // Solicitudes: todas (para el tab de Solicitudes)
         apiClient.getSubscriptionRequests({ page: 1, perPage: 500 }),
       ])
 
@@ -32,17 +38,27 @@ export default function SubscriptionsPage() {
       const reqRes =
         reqOutcome.status === 'fulfilled' ? reqOutcome.value : { items: [], total: undefined }
 
-      // Suscripciones: filtrar pending del lado cliente también por seguridad
-      const subsFiltered = subsRes.items.filter((s) => s.status !== 'pending')
-      setSubscriptions(subsFiltered)
+      const orgIds = new Set<string>()
+      for (const s of subsRes.items) {
+        if (s.organizationId) orgIds.add(s.organizationId)
+      }
+      for (const r of reqRes.items) {
+        if (r.organizationId) orgIds.add(r.organizationId)
+      }
 
-      // Solicitudes: todas las que vengan de /subscription/requests
-      setRequests(reqRes.items)
+      const orgMap = await apiClient.getOrganizationsByIds(Array.from(orgIds))
 
-      // Badge del tab de Solicitudes: solo las pendientes
-      const pending = reqRes.items.filter(
-        (r) => String(r.status).toLowerCase() === 'pending'
-      ).length
+      const subsMerged = subsRes.items.map((s) =>
+        mergeSubscriptionWithOrg(s, orgMap.get(s.organizationId))
+      )
+      const reqMerged = reqRes.items.map((r) =>
+        mergeRequestWithOrg(r, orgMap.get(r.organizationId))
+      )
+
+      setSubscriptions(subsMerged)
+      setRequests(reqMerged)
+
+      const pending = reqMerged.filter((r) => statusLower(r.status) === 'pending').length
       setPendingCount(pending)
 
       const failed: string[] = []

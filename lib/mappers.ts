@@ -1,5 +1,5 @@
 import type { OrganizationClientRow, OrganizationDetail } from './types'
-import { Plan, Subscription, SubscriptionPlan, SubscriptionStatus } from './types'
+import { Plan, Subscription, SubscriptionPlan } from './types'
 
 /** Valores típicos de ciclo de facturación en la API (ajusta si el backend usa otros). */
 export type BillingCycle = string
@@ -33,20 +33,20 @@ function pickNum(raw: Record<string, unknown>, keys: string[], fallback = 0): nu
   return fallback
 }
 
-function normalizeStatus(v: unknown): SubscriptionStatus {
-  if (typeof v === 'number' && Number.isFinite(v)) {
-    const map: Record<number, SubscriptionStatus> = {
+/** Estado de suscripción tal cual la API (string); si viene numérico, se mapea a nombre. */
+function subscriptionStatusFromApi(raw: unknown): string {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    const map: Record<number, string> = {
       0: 'pending',
       1: 'active',
       2: 'cancelled',
       3: 'expired',
     }
-    if (v in map) return map[v as keyof typeof map]
+    if (raw in map) return map[raw as keyof typeof map]
+    return String(raw)
   }
-  const s = String(v ?? '').toLowerCase()
-  if (s === 'active' || s === 'pending' || s === 'cancelled' || s === 'expired') return s
-  if (s === 'inactive' || s === 'canceled') return 'cancelled'
-  return 'pending'
+  const s = String(raw ?? '').trim()
+  return s
 }
 
 /** Mapea slug de plan conocido o devuelve el nombre tal cual para mostrar. */
@@ -225,6 +225,11 @@ export function normalizeSubscription(raw: unknown): Subscription {
     o.organization ?? o.Organization ?? o.org ?? o.Org
   )
 
+  const organizationId =
+    pick(o, ['organizationId', 'OrganizationId']) ||
+    (org ? pick(org, ['id', 'Id']) : '') ||
+    ''
+
   const businessName =
     pick(o, ['businessName', 'BusinessName']) ||
     pick(o, ['organizationName', 'OrganizationName']) ||
@@ -277,25 +282,50 @@ export function normalizeSubscription(raw: unknown): Subscription {
   const requestId =
     pick(o, ['subscriptionRequestId', 'SubscriptionRequestId', 'requestId', 'RequestId']) || undefined
 
+  const expiresRaw =
+    pick(o, [
+      'expirationDate',
+      'ExpirationDate',
+      'expiresAt',
+      'ExpiresAt',
+      'endDate',
+      'EndDate',
+      'expiresOn',
+      'ExpiresOn',
+      'end',
+      'End',
+    ]) || null
+
+  let remainingDays: number | null = null
+  const rd = o.remainingDays ?? o.RemainingDays
+  if (typeof rd === 'number' && Number.isFinite(rd)) remainingDays = rd
+  else if (typeof rd === 'string' && rd.trim() !== '') {
+    const n = parseInt(rd, 10)
+    if (!Number.isNaN(n)) remainingDays = n
+  }
+
+  const statusStr = subscriptionStatusFromApi(
+    o.status ?? o.Status ?? o.subscriptionStatus ?? o.SubscriptionStatus
+  )
+
   return {
     id: pick(o, ['id', 'Id'], '0'),
+    organizationId,
     businessName,
     contactEmail,
     contactPhone,
+    whatsAppContact: whatsAppContact || undefined,
     plan,
     planName: planName || undefined,
     planId: planId || undefined,
     requestId: requestId || undefined,
-    status: normalizeStatus(
-      o.status ?? o.Status ?? o.subscriptionStatus ?? o.SubscriptionStatus
-    ),
+    status: statusStr,
+    remainingDays,
     paymentMethod: null,
     amount,
     startsAt:
       pick(o, ['startsAt', 'StartsAt', 'startDate', 'StartDate', 'start', 'Start']) || null,
-    expiresAt:
-      pick(o, ['expiresAt', 'ExpiresAt', 'endDate', 'EndDate', 'expiresOn', 'ExpiresOn', 'end', 'End']) ||
-      null,
+    expiresAt: expiresRaw || null,
     notes: pick(o, ['notes', 'Notes']) || null,
     createdAt: pick(o, ['createdAt', 'CreatedAt', 'created', 'Created']) || new Date().toISOString(),
   }
@@ -303,8 +333,11 @@ export function normalizeSubscription(raw: unknown): Subscription {
 
 export interface SubscriptionRequestRow {
   id: string
+  organizationId: string
   businessName: string
   contactEmail: string
+  /** WhatsApp o teléfono (contactInfo) tras enriquecer con GET /organization/{id} */
+  whatsAppContact: string
   status: string
   planLabel: string
   createdAt: string
@@ -316,6 +349,11 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
   const o = asRecord(unwrapped) ?? {}
   const org = asRecord(o.organization ?? o.Organization)
   const plan = asRecord(o.plan ?? o.Plan)
+
+  const organizationId =
+    pick(o, ['organizationId', 'OrganizationId']) ||
+    (org ? pick(org, ['id', 'Id']) : '') ||
+    ''
 
   const businessName =
     pick(o, ['businessName', 'BusinessName']) ||
@@ -333,14 +371,70 @@ export function normalizeSubscriptionRequest(raw: unknown): SubscriptionRequestR
     pick(o, ['planId', 'PlanId']) ||
     '—'
 
+  const statusStr = String(o.status ?? o.Status ?? '').trim()
+
   return {
     id: pick(o, ['id', 'Id'], '0'),
+    organizationId,
     businessName,
     contactEmail,
-    status: String(o.status ?? o.Status ?? ''),
+    whatsAppContact: '',
+    status: statusStr,
     planLabel,
     createdAt: pick(o, ['createdAt', 'CreatedAt']) || '',
     raw: o,
+  }
+}
+
+/** Combina datos de GET /organization/{id} con una fila de suscripción. */
+export function mergeSubscriptionWithOrg(
+  sub: Subscription,
+  org: OrganizationDetail | null | undefined
+): Subscription {
+  const safe = (v: string) => (v && v.trim() !== '' ? v : '—')
+  if (!org) {
+    return {
+      ...sub,
+      businessName: safe(sub.businessName),
+      contactEmail: safe(sub.contactEmail),
+      contactPhone: safe(sub.contactPhone),
+    }
+  }
+  const wa = (org.whatsAppContact || '').trim()
+  const phone = (org.phone || '').trim()
+  const whats =
+    wa || phone || (sub.whatsAppContact || '').trim() || (sub.contactPhone || '').trim()
+  return {
+    ...sub,
+    businessName: safe(org.organizationName || sub.businessName),
+    contactEmail: safe(org.email || sub.contactEmail),
+    contactPhone: safe(phone || sub.contactPhone),
+    whatsAppContact: whats || undefined,
+  }
+}
+
+/** Combina GET /organization/{id} con una solicitud. */
+export function mergeRequestWithOrg(
+  row: SubscriptionRequestRow,
+  org: OrganizationDetail | null | undefined
+): SubscriptionRequestRow {
+  const safe = (v: string) => (v && v.trim() !== '' ? v : '—')
+  if (!org) {
+    return {
+      ...row,
+      businessName: safe(row.businessName),
+      contactEmail: safe(row.contactEmail),
+      whatsAppContact: row.whatsAppContact || '—',
+    }
+  }
+  const wa = (org.whatsAppContact || '').trim()
+  const phone = (org.phone || '').trim()
+  const whats = wa || phone || '—'
+  return {
+    ...row,
+    businessName: safe(org.organizationName || row.businessName),
+    contactEmail: safe(org.email || row.contactEmail),
+    whatsAppContact: whats,
   }
 }
 
@@ -448,16 +542,21 @@ export function normalizeOrganizationRow(raw: unknown): OrganizationClientRow {
     ]) || '—'
 
   const orgEmail = pick(o, ['email', 'Email', 'contactEmail', 'ContactEmail'])
-  const orgPhone = pick(o, ['phone', 'Phone', 'contactPhone', 'ContactPhone'])
+  const contactInfo = asRecord(o.contactInfo ?? o.ContactInfo)
+  const ciWhatsapp = contactInfo ? pick(contactInfo, ['whatsapp', 'WhatsApp']) : ''
+  const ciPhone = contactInfo ? pick(contactInfo, ['phone', 'Phone']) : ''
+  const orgPhone =
+    pick(o, ['phone', 'Phone', 'contactPhone', 'ContactPhone']) || ciPhone
 
-  // WhatsApp: desde locations[] (LocationResponse.whatsAppContact)
+  // WhatsApp: contactInfo.whatsapp → contactInfo.phone → locations[].whatsAppContact
   const orgLocations = o.locations ?? o.Locations
   const firstOrgLocation = Array.isArray(orgLocations) && orgLocations.length > 0
     ? asRecord(orgLocations[0])
     : null
-  const orgWhatsApp = firstOrgLocation
+  const orgWhatsAppFromLocation = firstOrgLocation
     ? pick(firstOrgLocation, ['whatsAppContact', 'WhatsAppContact'])
     : ''
+  const orgWhatsApp = (ciWhatsapp || ciPhone || orgWhatsAppFromLocation || '').trim()
 
   const adminName = admin
     ? pick(admin, ['fullName', 'FullName', 'name', 'Name', 'displayName', 'DisplayName'])
@@ -474,7 +573,8 @@ export function normalizeOrganizationRow(raw: unknown): OrganizationClientRow {
     id: pick(o, ['id', 'Id'], '0'),
     organizationName,
     email: orgEmail || adminEmail || '',
-    phone: orgPhone || adminPhone || '',
+    phone: orgPhone || adminPhone || ciPhone || '',
+    whatsAppContact: orgWhatsApp || undefined,
     accountStatus,
     adminName: adminName || '—',
     adminEmail: adminEmail || '—',

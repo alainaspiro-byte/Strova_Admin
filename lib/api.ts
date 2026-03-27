@@ -139,23 +139,27 @@ export interface UpdateUserDto {
   roleId?: number
 }
 
+function statusLower(s: string): string {
+  return String(s ?? '').trim().toLowerCase()
+}
+
 /** Útil cuando ya cargaste suscripciones y solicitudes y quieres las mismas tarjetas que el dashboard. */
 export function computeDashboardStats(
   subs: Subscription[],
   pendingRequestCount: number
 ): SubscriptionStats {
-  const active = subs.filter((s) => s.status === 'active').length
-  const pendingSubs = subs.filter((s) => s.status === 'pending').length
+  const active = subs.filter((s) => statusLower(s.status) === 'active').length
+  const pendingSubs = subs.filter((s) => statusLower(s.status) === 'pending').length
   const pending = pendingRequestCount > 0 ? pendingRequestCount : pendingSubs
 
   const monthlyRevenue = subs
-    .filter((s) => s.status === 'active')
+    .filter((s) => statusLower(s.status) === 'active')
     .reduce((sum, s) => sum + (Number.isFinite(s.amount) ? s.amount : 0), 0)
 
   const now = Date.now()
   const weekMs = 7 * 86400000
   const expiringThisWeek = subs.filter((s) => {
-    if (s.status !== 'active' || !s.expiresAt) return false
+    if (statusLower(s.status) !== 'active' || !s.expiresAt) return false
     const t = new Date(s.expiresAt).getTime()
     return t >= now && t <= now + weekMs
   }).length
@@ -575,6 +579,23 @@ export class ApiClient {
   async getOrganizationDetail(id: string): Promise<OrganizationDetail> {
     const raw = await this.request<unknown>(`/organization/${encodeURIComponent(id)}`)
     return normalizeOrganizationDetail(raw)
+  }
+
+  /** GET /organization/{id} por cada id único (enriquecer suscripciones/solicitudes). */
+  async getOrganizationsByIds(ids: string[]): Promise<Map<string, OrganizationDetail>> {
+    const unique = Array.from(new Set(ids.map((x) => String(x).trim()).filter(Boolean)))
+    const map = new Map<string, OrganizationDetail>()
+    await Promise.all(
+      unique.map(async (id) => {
+        try {
+          const org = await this.getOrganizationDetail(id)
+          map.set(id, org)
+        } catch {
+          /* sin permiso o no encontrada */
+        }
+      })
+    )
+    return map
   }
 }
 

@@ -32,14 +32,31 @@ function planStyle(plan: Plan): string {
   return PLAN_STYLE[plan] ?? 'bg-slate-200 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300'
 }
 
-export function StatusBadge({ status }: { status: SubscriptionStatus }) {
-  const cfg = STATUS[status]
+function subscriptionStatusKey(status: string): SubscriptionStatus | null {
+  const x = String(status ?? '').trim().toLowerCase()
+  if (x === 'canceled') return 'cancelled'
+  if (x === 'pending' || x === 'active' || x === 'cancelled' || x === 'expired') return x
+  return null
+}
+
+/** Estado tal como lo devuelve la API (string); colores solo para valores conocidos. */
+export function StatusBadge({ status }: { status: string }) {
+  const key = subscriptionStatusKey(status)
+  if (key) {
+    const cfg = STATUS[key]
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium ring-1 ring-inset ${cfg.classes}`}>
+        {key === 'active' && (
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+        )}
+        {cfg.label}
+      </span>
+    )
+  }
+  const label = String(status ?? '').trim() || '—'
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium ring-1 ring-inset ${cfg.classes}`}>
-      {status === 'active' && (
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-      )}
-      {cfg.label}
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ring-1 ring-inset bg-slate-100 text-slate-600 ring-slate-200 dark:bg-white/5 dark:text-white/50 dark:ring-white/10">
+      {label}
     </span>
   )
 }
@@ -57,9 +74,10 @@ export function PlanBadge({
   const label =
     planLabel ||
     (plan in PLAN_LABELS ? PLAN_LABELS[plan as keyof typeof PLAN_LABELS] : String(plan))
+  const showAmount = Number.isFinite(amount) && amount > 0
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${planStyle(plan)}`}>
-      {label} · ${amount}
+      {showAmount ? `${label} · $${amount}` : label}
     </span>
   )
 }

@@ -26,8 +26,9 @@ function sanitizePhone(phone: string): string {
 
 function buildWaUrl(sub: Subscription): { url: string; hasPhone: boolean; phone: string } {
   const plan = planDisplay(sub)
+  const st = String(sub.status ?? '').toLowerCase()
   const msg =
-    sub.status === 'pending'
+    st === 'pending'
       ? `Hola ${sub.businessName}, te contactamos desde Strova.\n\nTu solicitud del plan ${plan} ($${sub.amount}/mes) est\u00e1 lista. \u00bfC\u00f3mo prefieres pagar: efectivo o transferencia?`
       : `Hola ${sub.businessName}, tu plan ${plan} en Strova vence pronto. \u00bfDeseas renovar por $${sub.amount} m\u00e1s?`
 
@@ -44,7 +45,7 @@ function buildWaUrl(sub: Subscription): { url: string; hasPhone: boolean; phone:
 
 interface Props {
   sub: Subscription
-  onChange?: (id: string, status: Subscription['status'], method?: Subscription['paymentMethod']) => void
+  onChange?: (id: string, status: string, method?: Subscription['paymentMethod']) => void
   onRemoteUpdate?: () => void | Promise<void>
 }
 
@@ -114,7 +115,7 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
           </svg>
         </a>
 
-        {sub.status === 'pending' && sub.requestId && (
+        {String(sub.status ?? '').toLowerCase() === 'pending' && sub.requestId && (
           <>
             <button
               type="button"
@@ -133,13 +134,13 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
           </>
         )}
 
-        {sub.status === 'pending' && !sub.requestId && (
+        {String(sub.status ?? '').toLowerCase() === 'pending' && !sub.requestId && (
           <span className="text-[10px] text-slate-400 dark:text-white/25 max-w-[100px] text-right">
             Solicitudes: pestaña aparte
           </span>
         )}
 
-        {sub.status === 'active' && (
+        {String(sub.status ?? '').toLowerCase() === 'active' && (
           <button
             type="button"
             onClick={loadPlansForChange}
@@ -149,7 +150,8 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
           </button>
         )}
 
-        {(sub.status === 'expired' || sub.status === 'cancelled') && (
+        {(String(sub.status ?? '').toLowerCase() === 'expired' ||
+          String(sub.status ?? '').toLowerCase() === 'cancelled') && (
           <button
             type="button"
             onClick={() => {

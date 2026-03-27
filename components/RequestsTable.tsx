@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { SubscriptionRequestRow } from '@/lib/mappers'
 import { apiClient, errorMessage } from '@/lib/api'
 import { formatDate } from './Badges'
@@ -15,21 +15,69 @@ const field =
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected'
 
 const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: 'all',      label: 'Todas' },
-  { key: 'pending',  label: 'Pendientes' },
+  { key: 'all', label: 'Todas' },
+  { key: 'pending', label: 'Pendientes' },
   { key: 'approved', label: 'Aprobadas' },
   { key: 'rejected', label: 'Rechazadas' },
 ]
 
+function statusKey(s: string): string {
+  return String(s ?? '').trim().toLowerCase()
+}
+
 function statusBadge(status: string) {
-  const s = status.toLowerCase()
+  const s = statusKey(status)
+  const label = String(status ?? '').trim() || '—'
   if (s === 'pending')
-    return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400">Pendiente</span>
-  if (s === 'approved' || s === 'active')
-    return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400">Aprobada</span>
-  if (s === 'rejected' || s === 'cancelled')
-    return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400">Rechazada</span>
-  return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-500/15 text-slate-400">{status || '—'}</span>
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400">
+        {label}
+      </span>
+    )
+  if (s === 'approved')
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400">
+        {label}
+      </span>
+    )
+  if (s === 'rejected')
+    return (
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400">
+        {label}
+      </span>
+    )
+  return (
+    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-500/15 text-slate-400">
+      {label}
+    </span>
+  )
+}
+
+function matchesFilter(rowStatus: string, filter: StatusFilter): boolean {
+  const s = statusKey(rowStatus)
+  if (filter === 'all') return true
+  if (filter === 'pending') return s === 'pending'
+  if (filter === 'approved') return s === 'approved'
+  if (filter === 'rejected') return s === 'rejected'
+  return true
+}
+
+function sanitizePhone(phone: string): string {
+  return phone.replace(/\D/g, '')
+}
+
+function emptyMessage(filter: StatusFilter, hasSearch: boolean): string {
+  if (hasSearch) return 'No hay resultados para tu búsqueda'
+  switch (filter) {
+    case 'pending':
+      return 'No hay solicitudes pendientes 🎉'
+    case 'approved':
+      return 'No hay solicitudes aprobadas'
+    case 'rejected':
+      return 'No hay solicitudes rechazadas'
+    default:
+      return 'No hay solicitudes registradas'
+  }
 }
 
 export function RequestsTable({
@@ -39,7 +87,12 @@ export function RequestsTable({
   initial: SubscriptionRequestRow[]
   onRemoteUpdate?: () => void | Promise<void>
 }) {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending')
+  const [rows, setRows] = useState(initial)
+  useEffect(() => {
+    setRows(initial)
+  }, [initial])
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -71,34 +124,31 @@ export function RequestsTable({
     }
   }
 
-  // Counts por estado para los tabs
-  const counts = useMemo(() => ({
-    all:      initial.length,
-    pending:  initial.filter((r) => r.status.toLowerCase() === 'pending').length,
-    approved: initial.filter((r) => ['approved', 'active'].includes(r.status.toLowerCase())).length,
-    rejected: initial.filter((r) => ['rejected', 'cancelled'].includes(r.status.toLowerCase())).length,
-  }), [initial])
+  const counts = useMemo(
+    () => ({
+      all: rows.length,
+      pending: rows.filter((r) => statusKey(r.status) === 'pending').length,
+      approved: rows.filter((r) => statusKey(r.status) === 'approved').length,
+      rejected: rows.filter((r) => statusKey(r.status) === 'rejected').length,
+    }),
+    [rows]
+  )
 
   const filtered = useMemo(() => {
-    return initial.filter((r) => {
-      const s = r.status.toLowerCase()
-      if (statusFilter === 'pending'  && s !== 'pending') return false
-      if (statusFilter === 'approved' && !['approved', 'active'].includes(s)) return false
-      if (statusFilter === 'rejected' && !['rejected', 'cancelled'].includes(s)) return false
+    return rows.filter((r) => {
+      if (!matchesFilter(r.status, statusFilter)) return false
       if (search) {
         const q = search.toLowerCase()
-        return (
-          r.businessName.toLowerCase().includes(q) ||
-          r.contactEmail.toLowerCase().includes(q) ||
-          r.planLabel.toLowerCase().includes(q)
-        )
+        const name = (r.businessName || '').toLowerCase()
+        const mail = (r.contactEmail || '').toLowerCase()
+        const plan = (r.planLabel || '').toLowerCase()
+        return name.includes(q) || mail.includes(q) || plan.includes(q)
       }
       return true
     })
-  }, [initial, statusFilter, search])
+  }, [rows, statusFilter, search])
 
-  // Solo se puede aprobar/rechazar si la solicitud está pendiente
-  const canAct = (r: SubscriptionRequestRow) => r.status.toLowerCase() === 'pending'
+  const canAct = (r: SubscriptionRequestRow) => statusKey(r.status) === 'pending'
 
   return (
     <div className={shell}>
@@ -106,7 +156,7 @@ export function RequestsTable({
       <div className="px-4 py-3 border-b border-slate-200 dark:border-white/[0.06] space-y-3">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           {/* Tabs de estado */}
-          <div className="flex gap-0.5">
+          <div className="flex gap-0.5 flex-wrap">
             {STATUS_FILTERS.map((f) => (
               <button
                 key={f.key}
@@ -119,7 +169,13 @@ export function RequestsTable({
                 }`}
               >
                 {f.label}
-                <span className={`ml-1.5 tabular-nums ${statusFilter === f.key ? 'text-slate-600 dark:text-white/40' : 'text-slate-400 dark:text-white/20'}`}>
+                <span
+                  className={`ml-1.5 tabular-nums ${
+                    statusFilter === f.key
+                      ? 'text-slate-600 dark:text-white/40'
+                      : 'text-slate-400 dark:text-white/20'
+                  }`}
+                >
                   {counts[f.key]}
                 </span>
               </button>
@@ -128,10 +184,18 @@ export function RequestsTable({
 
           {/* Buscador */}
           <div className="relative">
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-white/20"
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            <svg
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-white/20"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+              />
             </svg>
             <input
               type="text"
@@ -155,7 +219,7 @@ export function RequestsTable({
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/[0.04]">
-              {['Negocio', 'Email', 'Plan', 'Estado', 'Fecha', 'Acciones'].map((h) => (
+              {['Negocio', 'Email', 'Plan', 'Estado', 'Fecha', 'WhatsApp', 'Acciones'].map((h) => (
                 <th
                   key={h}
                   className="text-left text-[10px] font-semibold text-slate-400 dark:text-white/20 uppercase tracking-widest px-4 py-3"
@@ -168,51 +232,86 @@ export function RequestsTable({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-16 text-sm text-slate-400 dark:text-white/20">
-                  {statusFilter === 'pending' ? 'No hay solicitudes pendientes 🎉' : 'No hay resultados'}
+                <td colSpan={7} className="text-center py-16 text-sm text-slate-400 dark:text-white/20">
+                  {emptyMessage(statusFilter, Boolean(search))}
                 </td>
               </tr>
             ) : (
-              filtered.map((r, i) => (
-                <tr
-                  key={r.id}
-                  className={`border-b border-slate-200 dark:border-white/[0.03] hover:bg-slate-50 dark:hover:bg-white/[0.02] ${
-                    i === filtered.length - 1 ? 'border-b-0' : ''
-                  }`}
-                >
-                  <td className="px-4 py-3 text-sm text-slate-800 dark:text-white/80 font-medium">{r.businessName}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/40">{r.contactEmail}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600 dark:text-white/50">{r.planLabel}</td>
-                  <td className="px-4 py-3">{statusBadge(r.status)}</td>
-                  <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/30">
-                    {r.createdAt ? formatDate(r.createdAt) : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    {canAct(r) ? (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={busyId === r.id}
-                          onClick={() => { setActiveRow(r); setModal('approve') }}
-                          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-40"
+              filtered.map((r, i) => {
+                const rawWa =
+                  r.whatsAppContact && r.whatsAppContact !== '—' ? r.whatsAppContact : ''
+                const waDigits = sanitizePhone(rawWa)
+                const waUrl = waDigits ? `https://wa.me/${waDigits}` : '#'
+
+                return (
+                  <tr
+                    key={r.id}
+                    className={`border-b border-slate-200 dark:border-white/[0.03] hover:bg-slate-50 dark:hover:bg-white/[0.02] ${
+                      i === filtered.length - 1 ? 'border-b-0' : ''
+                    }`}
+                  >
+                    <td className="px-4 py-3 text-sm text-slate-800 dark:text-white/80 font-medium">
+                      {r.businessName || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/40">
+                      {r.contactEmail && r.contactEmail !== '—' ? r.contactEmail : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600 dark:text-white/50">
+                      {r.planLabel || '—'}
+                    </td>
+                    <td className="px-4 py-3">{statusBadge(r.status)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 dark:text-white/30">
+                      {r.createdAt ? formatDate(r.createdAt) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {waDigits ? (
+                        <a
+                          href={waUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-500 hover:underline"
                         >
-                          Aprobar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busyId === r.id}
-                          onClick={() => { setActiveRow(r); setModal('reject') }}
-                          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 disabled:opacity-40"
-                        >
-                          Rechazar
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 dark:text-white/20 italic">Sin acciones</span>
-                    )}
-                  </td>
-                </tr>
-              ))
+                          {rawWa || waDigits}
+                        </a>
+                      ) : (
+                        <span className="text-slate-400 dark:text-white/25">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {canAct(r) ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={busyId === r.id}
+                            onClick={() => {
+                              setActiveRow(r)
+                              setModal('approve')
+                            }}
+                            className="px-2 py-1 rounded-lg text-[11px] font-medium bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-40"
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busyId === r.id}
+                            onClick={() => {
+                              setActiveRow(r)
+                              setModal('reject')
+                            }}
+                            className="px-2 py-1 rounded-lg text-[11px] font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 disabled:opacity-40"
+                          >
+                            Rechazar
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 dark:text-white/20 italic">
+                          Sin acciones
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
@@ -223,7 +322,7 @@ export function RequestsTable({
         <div className="px-4 py-2.5 border-t border-slate-200 dark:border-white/[0.04]">
           <span className="text-xs text-slate-400 dark:text-white/20">
             {filtered.length} {filtered.length === 1 ? 'solicitud' : 'solicitudes'}
-            {statusFilter !== 'all' && ` · ${initial.length} en total`}
+            {statusFilter !== 'all' && ` · ${rows.length} en total`}
           </span>
         </div>
       )}
@@ -232,9 +331,7 @@ export function RequestsTable({
       {modal === 'approve' && activeRow && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
           <div className={modalPanel}>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-              Aprobar solicitud
-            </h3>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Aprobar solicitud</h3>
             <p className="text-[11px] text-slate-500 dark:text-white/40">
               {activeRow.businessName} · {activeRow.planLabel}
             </p>
@@ -279,9 +376,7 @@ export function RequestsTable({
       {modal === 'reject' && activeRow && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
           <div className={modalPanel}>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-              Rechazar solicitud
-            </h3>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Rechazar solicitud</h3>
             <p className="text-[11px] text-slate-500 dark:text-white/40">
               {activeRow.businessName} · {activeRow.planLabel}
             </p>
