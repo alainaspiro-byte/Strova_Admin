@@ -6,6 +6,7 @@ import { PLAN_LABELS } from '@/lib/data'
 import { apiClient, errorMessage } from '@/lib/api'
 import type { BillingCycle } from '@/lib/mappers'
 import type { SubscriptionPlan } from '@/lib/types'
+import { canonicalSubscriptionStatus } from '@/lib/subscriptionStatus'
 
 const DEFAULT_BILLING: BillingCycle = 'Monthly'
 
@@ -50,9 +51,14 @@ interface Props {
 }
 
 export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) {
+  const life = canonicalSubscriptionStatus(sub.status)
+  const workflowId = (sub.requestId && sub.requestId.trim() !== '' ? sub.requestId : sub.id) || ''
+
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [modal, setModal] = useState<'none' | 'renew' | 'change' | 'approve' | 'reject'>('none')
+  const [modal, setModal] = useState<'none' | 'renew' | 'change' | 'approve' | 'reject' | 'cancel'>(
+    'none'
+  )
   const [billingCycle, setBillingCycle] = useState<BillingCycle>(DEFAULT_BILLING)
   const [notes, setNotes] = useState('')
   const [paymentRef, setPaymentRef] = useState('')
@@ -115,7 +121,7 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
           </svg>
         </a>
 
-        {String(sub.status ?? '').toLowerCase() === 'pending' && sub.requestId && (
+        {life === 'pending' && workflowId && (
           <>
             <button
               type="button"
@@ -134,24 +140,26 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
           </>
         )}
 
-        {String(sub.status ?? '').toLowerCase() === 'pending' && !sub.requestId && (
-          <span className="text-[10px] text-slate-400 dark:text-white/25 max-w-[100px] text-right">
-            Solicitudes: pestaña aparte
-          </span>
+        {life === 'active' && (
+          <>
+            <button
+              type="button"
+              onClick={() => setModal('cancel')}
+              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-500/15 text-slate-400 hover:bg-slate-500/25 transition-colors"
+            >
+              Dar de baja
+            </button>
+            <button
+              type="button"
+              onClick={loadPlansForChange}
+              className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-white/5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/70 transition-colors"
+            >
+              Cambiar plan
+            </button>
+          </>
         )}
 
-        {String(sub.status ?? '').toLowerCase() === 'active' && (
-          <button
-            type="button"
-            onClick={loadPlansForChange}
-            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-white/5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/70 transition-colors"
-          >
-            Cambiar plan
-          </button>
-        )}
-
-        {(String(sub.status ?? '').toLowerCase() === 'expired' ||
-          String(sub.status ?? '').toLowerCase() === 'cancelled') && (
+        {(life === 'expired' || life === 'canceled') && (
           <button
             type="button"
             onClick={() => {
@@ -165,7 +173,7 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
         )}
       </div>
 
-      {modal === 'approve' && sub.requestId && (
+      {modal === 'approve' && workflowId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
           <div className={modalPanel}>
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Aprobar solicitud</h3>
@@ -190,7 +198,7 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
                 disabled={busy}
                 onClick={() =>
                   run(async () => {
-                    await apiClient.approveRequest(sub.requestId!, {
+                    await apiClient.approveRequest(workflowId, {
                       notes: notes || undefined,
                       paymentReference: paymentRef || undefined,
                     })
@@ -205,7 +213,7 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
         </div>
       )}
 
-      {modal === 'reject' && sub.requestId && (
+      {modal === 'reject' && workflowId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
           <div className={modalPanel}>
             <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Rechazar solicitud</h3>
@@ -226,12 +234,48 @@ export function RowActions({ sub, onChange: _onChange, onRemoteUpdate }: Props) 
                 disabled={busy || !notes.trim()}
                 onClick={() =>
                   run(async () => {
-                    await apiClient.rejectRequest(sub.requestId!, { notes: notes.trim() })
+                    await apiClient.rejectRequest(workflowId, { notes: notes.trim() })
                   })
                 }
                 className="px-3 py-1.5 text-xs rounded-lg bg-red-500/20 text-red-400"
               >
                 {busy ? '…' : 'Rechazar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal === 'cancel' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Cancelar suscripción</h3>
+            <p className="text-[11px] text-slate-500 dark:text-white/40">
+              La suscripción pasará a estado cancelada. Esta acción depende del endpoint de la API.
+            </p>
+            <textarea
+              placeholder="Motivo (opcional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={`${field} min-h-[50px]`}
+            />
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={closeAll} className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50">
+                Volver
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await apiClient.cancelSubscription(sub.id, {
+                      notes: notes.trim() || undefined,
+                    })
+                  })
+                }
+                className="px-3 py-1.5 text-xs rounded-lg bg-slate-500/20 text-slate-300"
+              >
+                {busy ? '…' : 'Confirmar cancelación'}
               </button>
             </div>
           </div>

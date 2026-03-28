@@ -143,7 +143,7 @@ export const MOCK_SUBSCRIPTIONS: Subscription[] = [
     contactEmail: 'libros@mir.cu',
     contactPhone: '+53 5512 8888',
     plan: 'basic',
-    status: 'cancelled',
+    status: 'canceled',
     remainingDays: null,
     paymentMethod: 'cash',
     amount: 10,

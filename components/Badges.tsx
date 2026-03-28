@@ -1,5 +1,6 @@
 import { Plan, SubscriptionStatus, PaymentMethod } from '@/lib/types'
 import { PLAN_LABELS } from '@/lib/data'
+import { canonicalSubscriptionStatus } from '@/lib/subscriptionStatus'
 
 const STATUS: Record<SubscriptionStatus, { label: string; classes: string }> = {
   active: {
@@ -12,7 +13,12 @@ const STATUS: Record<SubscriptionStatus, { label: string; classes: string }> = {
     classes:
       'bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:ring-amber-500/25',
   },
-  cancelled: {
+  rejected: {
+    label: 'Rechazada',
+    classes:
+      'bg-rose-100 text-rose-800 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:ring-rose-500/25',
+  },
+  canceled: {
     label: 'Cancelada',
     classes: 'bg-slate-100 text-slate-600 ring-slate-200 dark:bg-white/5 dark:text-white/30 dark:ring-white/10',
   },
@@ -32,16 +38,9 @@ function planStyle(plan: Plan): string {
   return PLAN_STYLE[plan] ?? 'bg-slate-200 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300'
 }
 
-function subscriptionStatusKey(status: string): SubscriptionStatus | null {
-  const x = String(status ?? '').trim().toLowerCase()
-  if (x === 'canceled') return 'cancelled'
-  if (x === 'pending' || x === 'active' || x === 'cancelled' || x === 'expired') return x
-  return null
-}
-
-/** Estado tal como lo devuelve la API (string); colores solo para valores conocidos. */
+/** Estado tal como lo devuelve la API (string); colores para los 5 estados canónicos. */
 export function StatusBadge({ status }: { status: string }) {
-  const key = subscriptionStatusKey(status)
+  const key = canonicalSubscriptionStatus(status)
   if (key) {
     const cfg = STATUS[key]
     return (

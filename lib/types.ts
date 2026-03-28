@@ -1,4 +1,10 @@
-export type SubscriptionStatus = 'pending' | 'active' | 'cancelled' | 'expired'
+/** Estados de ciclo de vida (UI + filtros). */
+export type SubscriptionStatus =
+  | 'pending'
+  | 'active'
+  | 'rejected'
+  | 'canceled'
+  | 'expired'
 export type PaymentMethod = 'cash' | 'transfer' | null
 /** Slug interno para badges; la API puede devolver nombres distintos (ver planName). */
 export type Plan = 'basic' | 'pro' | 'enterprise' | string
@@ -16,7 +22,7 @@ export interface Subscription {
   /** Nombre del plan tal como lo devuelve la API (planName) */
   planName?: string
   planId?: string
-  /** Si la fila enlaza con una solicitud, permite aprobar/rechazar por este id */
+  /** Id para POST approve/reject si difiere del id de suscripción (p. ej. solicitud) */
   requestId?: string
   /** Estado exacto devuelto por la API (filtros y etiquetas) */
   status: string

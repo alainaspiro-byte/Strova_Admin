@@ -5,3 +5,6 @@ build/
 
 # Next.js (salida de build local; no versionar)
 .next/
+
+# Caché incremental de TypeScript (regenerable)
+tsconfig.tsbuildinfo

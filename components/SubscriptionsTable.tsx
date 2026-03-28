@@ -1,19 +1,24 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Subscription, SubscriptionStatus } from '@/lib/types'
+import { Subscription } from '@/lib/types'
+import {
+  type SubscriptionLifecycleStatus,
+  statusMatchesFilter,
+} from '@/lib/subscriptionStatus'
 import { StatusBadge, PlanBadge, formatDate, daysUntil } from './Badges'
 import { RowActions } from './RowActions'
 
-type Tab = 'all' | SubscriptionStatus
+type Tab = 'all' | SubscriptionLifecycleStatus
 type ExpirationFilter = 'all' | 'expiring-soon' | 'expired'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'all', label: 'Todas' },
   { key: 'pending', label: 'Pendientes' },
   { key: 'active', label: 'Activas' },
+  { key: 'rejected', label: 'Rechazadas' },
+  { key: 'canceled', label: 'Canceladas' },
   { key: 'expired', label: 'Vencidas' },
-  { key: 'cancelled', label: 'Canceladas' },
 ]
 
 const EXPIRATION_FILTERS: { key: ExpirationFilter; label: string }[] = [
@@ -24,11 +29,6 @@ const EXPIRATION_FILTERS: { key: ExpirationFilter; label: string }[] = [
 
 const shell =
   'bg-white dark:bg-[#111827] rounded-xl border border-slate-200 shadow-sm dark:border-white/[0.06] dark:shadow-none overflow-hidden'
-
-function statusMatchesTab(status: string, tab: Tab): boolean {
-  if (tab === 'all') return true
-  return String(status ?? '').trim().toLowerCase() === tab
-}
 
 function sanitizePhone(phone: string): string {
   return phone.replace(/\D/g, '')
@@ -41,10 +41,12 @@ function emptyMessage(tab: Tab, hasSearch: boolean): string {
       return 'No hay suscripciones pendientes 🎉'
     case 'active':
       return 'No hay suscripciones activas'
+    case 'rejected':
+      return 'No hay suscripciones rechazadas'
+    case 'canceled':
+      return 'No hay suscripciones canceladas'
     case 'expired':
       return 'No hay suscripciones vencidas'
-    case 'cancelled':
-      return 'No hay suscripciones canceladas'
     default:
       return 'No hay suscripciones registradas'
   }
@@ -71,10 +73,11 @@ export function SubscriptionsTable({
   const counts = useMemo(
     () => ({
       all: data.length,
-      pending: data.filter((s) => statusMatchesTab(s.status, 'pending')).length,
-      active: data.filter((s) => statusMatchesTab(s.status, 'active')).length,
-      expired: data.filter((s) => statusMatchesTab(s.status, 'expired')).length,
-      cancelled: data.filter((s) => statusMatchesTab(s.status, 'cancelled')).length,
+      pending: data.filter((s) => statusMatchesFilter(s.status, 'pending')).length,
+      active: data.filter((s) => statusMatchesFilter(s.status, 'active')).length,
+      rejected: data.filter((s) => statusMatchesFilter(s.status, 'rejected')).length,
+      canceled: data.filter((s) => statusMatchesFilter(s.status, 'canceled')).length,
+      expired: data.filter((s) => statusMatchesFilter(s.status, 'expired')).length,
     }),
     [data]
   )
@@ -94,7 +97,7 @@ export function SubscriptionsTable({
   const filtered = useMemo(
     () =>
       data.filter((s) => {
-        if (!statusMatchesTab(s.status, tab)) return false
+        if (!statusMatchesFilter(s.status, tab)) return false
         if (planFilter !== 'all') {
           const key = String(s.planId ?? s.planName ?? s.plan ?? '')
           if (key !== planFilter) return false

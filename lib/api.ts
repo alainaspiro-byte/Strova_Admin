@@ -143,14 +143,10 @@ function statusLower(s: string): string {
   return String(s ?? '').trim().toLowerCase()
 }
 
-/** Útil cuando ya cargaste suscripciones y solicitudes y quieres las mismas tarjetas que el dashboard. */
-export function computeDashboardStats(
-  subs: Subscription[],
-  pendingRequestCount: number
-): SubscriptionStats {
+/** Estadísticas a partir del listado único GET /subscription. */
+export function computeDashboardStats(subs: Subscription[]): SubscriptionStats {
   const active = subs.filter((s) => statusLower(s.status) === 'active').length
-  const pendingSubs = subs.filter((s) => statusLower(s.status) === 'pending').length
-  const pending = pendingRequestCount > 0 ? pendingRequestCount : pendingSubs
+  const pending = subs.filter((s) => statusLower(s.status) === 'pending').length
 
   const monthlyRevenue = subs
     .filter((s) => statusLower(s.status) === 'active')
@@ -359,17 +355,8 @@ export class ApiClient {
    */
   async getDashboardStats(): Promise<SubscriptionStats> {
     const perPage = 500
-    let pendingReqRes: PaginatedResult<SubscriptionRequestRow> = { items: [], total: 0 }
-    try {
-      pendingReqRes = await this.getSubscriptionRequests({ page: 1, perPage, status: 'pending' })
-    } catch {
-      /* sin permiso o endpoint no disponible */
-    }
-
     const subsRes = await this.getSubscriptions({ page: 1, perPage })
-    const pendingFromRequests = pendingReqRes.total ?? pendingReqRes.items.length
-
-    return computeDashboardStats(subsRes.items, pendingFromRequests)
+    return computeDashboardStats(subsRes.items)
   }
 
   async getSubscriptionDetail(id: string) {
@@ -388,6 +375,14 @@ export class ApiClient {
     return this.request(`/subscription/${encodeURIComponent(id)}/change-plan`, {
       method: 'PUT',
       body: JSON.stringify(body),
+    })
+  }
+
+  /** Activa → cancelada. Ajusta la ruta si tu Swagger define otro endpoint. */
+  async cancelSubscription(id: string, body?: { notes?: string }) {
+    return this.request(`/subscription/${encodeURIComponent(id)}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify(body ?? {}),
     })
   }
 
@@ -579,6 +574,23 @@ export class ApiClient {
   async getOrganizationDetail(id: string): Promise<OrganizationDetail> {
     const raw = await this.request<unknown>(`/organization/${encodeURIComponent(id)}`)
     return normalizeOrganizationDetail(raw)
+  }
+
+  /**
+   * Detalle por varios ids (p. ej. enriquecer GET /subscription). Errores por id se omiten.
+   */
+  async getOrganizationsByIds(ids: string[]): Promise<Map<string, OrganizationDetail>> {
+    const unique = Array.from(
+      new Set(ids.map((id) => String(id ?? '').trim()).filter(Boolean))
+    )
+    const out = new Map<string, OrganizationDetail>()
+    if (unique.length === 0) return out
+    const settled = await Promise.allSettled(unique.map((id) => this.getOrganizationDetail(id)))
+    unique.forEach((id, i) => {
+      const r = settled[i]
+      if (r.status === 'fulfilled') out.set(id, r.value)
+    })
+    return out
   }
 }
 

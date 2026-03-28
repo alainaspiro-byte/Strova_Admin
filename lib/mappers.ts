@@ -33,19 +33,21 @@ function pickNum(raw: Record<string, unknown>, keys: string[], fallback = 0): nu
   return fallback
 }
 
-/** Estado de suscripción tal cual la API (string); si viene numérico, se mapea a nombre. */
+/** Estado normalizado (canceled sin doble l; compatible con filtros de UI). */
 function subscriptionStatusFromApi(raw: unknown): string {
   if (typeof raw === 'number' && Number.isFinite(raw)) {
     const map: Record<number, string> = {
       0: 'pending',
       1: 'active',
-      2: 'cancelled',
+      2: 'canceled',
       3: 'expired',
+      4: 'rejected',
     }
     if (raw in map) return map[raw as keyof typeof map]
     return String(raw)
   }
-  const s = String(raw ?? '').trim()
+  let s = String(raw ?? '').trim().toLowerCase()
+  if (s === 'cancelled') s = 'canceled'
   return s
 }
 
@@ -453,31 +455,6 @@ export function mergeSubscriptionWithOrg(
     contactEmail: safe(org.email || sub.contactEmail),
     contactPhone: safe(phone || sub.contactPhone),
     whatsAppContact: whats || undefined,
-  }
-}
-
-/** Opcional: combina detalle de organización con una solicitud (p. ej. mocks). */
-export function mergeRequestWithOrg(
-  row: SubscriptionRequestRow,
-  org: OrganizationDetail | null | undefined
-): SubscriptionRequestRow {
-  const safe = (v: string) => (v && v.trim() !== '' ? v : '—')
-  if (!org) {
-    return {
-      ...row,
-      businessName: safe(row.businessName),
-      contactEmail: safe(row.contactEmail),
-      whatsAppContact: row.whatsAppContact || '—',
-    }
-  }
-  const wa = (org.whatsAppContact || '').trim()
-  const phone = (org.phone || '').trim()
-  const whats = wa || phone || '—'
-  return {
-    ...row,
-    businessName: safe(org.organizationName || row.businessName),
-    contactEmail: safe(org.email || row.contactEmail),
-    whatsAppContact: whats,
   }
 }
 
