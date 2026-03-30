@@ -76,10 +76,15 @@ export interface OrganizationDetail extends OrganizationClientRow {
 
 export interface SubscriptionPlan {
   id: string
+  /** Etiqueta (DisplayName o Name de la API) */
   name: string
+  /** Precio mensual (monthlyPrice) */
   price: number
-  durationDays: number
+  annualPrice: number
   productLimit: number
+  maxUsers: number
+  maxLocations: number
+  description?: string
   createdAt: string
   updatedAt: string
   priceHistory: { price: number; date: string }[]

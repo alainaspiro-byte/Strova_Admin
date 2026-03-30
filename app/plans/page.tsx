@@ -12,9 +12,13 @@ export default function PlansPage() {
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
   const [formData, setFormData] = useState({
     name: '',
-    price: '',
-    durationDays: '',
-    productLimit: '',
+    description: '',
+    monthlyPrice: '',
+    annualPrice: '',
+    maxProducts: '',
+    maxUsers: '',
+    maxLocations: '',
+    isActive: true,
   })
   const [saving, setSaving] = useState(false)
 
@@ -41,17 +45,25 @@ export default function PlansPage() {
       setEditingPlan(plan)
       setFormData({
         name: plan.name,
-        price: plan.price.toString(),
-        durationDays: plan.durationDays.toString(),
-        productLimit: plan.productLimit.toString(),
+        description: plan.description ?? '',
+        monthlyPrice: plan.price.toString(),
+        annualPrice: plan.annualPrice.toString(),
+        maxProducts: plan.productLimit.toString(),
+        maxUsers: plan.maxUsers.toString(),
+        maxLocations: plan.maxLocations.toString(),
+        isActive: plan.isActive !== false,
       })
     } else {
       setEditingPlan(null)
       setFormData({
         name: '',
-        price: '',
-        durationDays: '',
-        productLimit: '',
+        description: '',
+        monthlyPrice: '',
+        annualPrice: '',
+        maxProducts: '',
+        maxUsers: '',
+        maxLocations: '',
+        isActive: true,
       })
     }
     setIsModalOpen(true)
@@ -66,11 +78,17 @@ export default function PlansPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      const label = formData.name.trim()
       const payload = {
-        name: formData.name,
-        price: parseFloat(formData.price),
-        durationDays: parseInt(formData.durationDays, 10),
-        productLimit: parseInt(formData.productLimit, 10),
+        name: label,
+        displayName: label,
+        description: formData.description.trim() || undefined,
+        monthlyPrice: parseFloat(formData.monthlyPrice),
+        annualPrice: parseFloat(formData.annualPrice),
+        maxProducts: parseInt(formData.maxProducts, 10),
+        maxUsers: parseInt(formData.maxUsers, 10),
+        maxLocations: parseInt(formData.maxLocations, 10),
+        isActive: formData.isActive,
       }
       if (editingPlan) {
         await apiClient.updatePlan(editingPlan.id, payload)
@@ -130,9 +148,10 @@ export default function PlansPage() {
             <thead className="bg-slate-100 dark:bg-[#111827] border-b border-slate-200 dark:border-white/[0.06]">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Nombre</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Precio</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Duración</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Límite productos</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">$/mes</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">$/año</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Límites</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Activo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-white/60 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
@@ -140,14 +159,13 @@ export default function PlansPage() {
               {plans.map((plan) => (
                 <tr key={plan.id} className="hover:bg-slate-50 dark:hover:bg-[#111827]">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white font-medium">{plan.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 dark:text-white">
-                    ${plan.price} <span className="text-slate-500 dark:text-white/40 text-xs">/mes</span>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 dark:text-white">${plan.price}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 dark:text-white">${plan.annualPrice}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600 dark:text-white/70">
+                    P {plan.productLimit < 0 ? '∞' : plan.productLimit} · U {plan.maxUsers} · L {plan.maxLocations}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-white/70">
-                    {plan.durationDays > 0 ? `${plan.durationDays} días` : '—'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-white/70">
-                    {plan.productLimit < 0 ? 'Ilimitado' : plan.productLimit}
+                    {plan.isActive !== false ? 'Sí' : 'No'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                     <button
@@ -174,7 +192,7 @@ export default function PlansPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 dark:border-white/[0.08] max-w-md w-full mx-4 shadow-xl">
+          <div className="bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 dark:border-white/[0.08] max-w-lg w-full mx-4 shadow-xl">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">{editingPlan ? 'Editar plan' : 'Nuevo plan'}</h2>
@@ -185,7 +203,7 @@ export default function PlansPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
                 <div>
                   <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Nombre</label>
                   <input
@@ -198,38 +216,87 @@ export default function PlansPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Precio ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Descripción</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={2}
                     className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Duración (días)</label>
-                  <input
-                    type="number"
-                    value={formData.durationDays}
-                    onChange={(e) => setFormData({ ...formData, durationDays: e.target.value })}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Precio mensual</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.monthlyPrice}
+                      onChange={(e) => setFormData({ ...formData, monthlyPrice: e.target.value })}
+                      className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Precio anual</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.annualPrice}
+                      onChange={(e) => setFormData({ ...formData, annualPrice: e.target.value })}
+                      className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Límite de productos</label>
-                  <input
-                    type="number"
-                    value={formData.productLimit}
-                    onChange={(e) => setFormData({ ...formData, productLimit: e.target.value })}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Máx. productos</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.maxProducts}
+                      onChange={(e) => setFormData({ ...formData, maxProducts: e.target.value })}
+                      className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Máx. usuarios</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.maxUsers}
+                      onChange={(e) => setFormData({ ...formData, maxUsers: e.target.value })}
+                      className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-white/60 mb-1">Máx. ubicaciones</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.maxLocations}
+                      onChange={(e) => setFormData({ ...formData, maxLocations: e.target.value })}
+                      className="w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
                 </div>
+
+                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-white/80 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="rounded border-slate-300 dark:border-white/20"
+                  />
+                  Plan activo
+                </label>
 
                 <div className="flex space-x-3 pt-4">
                   <button

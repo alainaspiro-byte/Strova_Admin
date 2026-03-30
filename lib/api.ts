@@ -110,12 +110,44 @@ export interface ChangePlanRequest {
   paymentReference?: string
 }
 
+/** Cuerpo alineado con el DTO de la API (name, displayName, description, límites, precios, isActive). */
 export type CreateOrUpdatePlanRequest = {
   name: string
-  price: number
-  durationDays: number
-  productLimit: number
+  displayName: string
+  description?: string
+  maxProducts: number
+  maxUsers: number
+  maxLocations: number
+  monthlyPrice: number
+  annualPrice: number
+  isActive: boolean
 } & Record<string, unknown>
+
+function planWriteBody(data: Partial<CreateOrUpdatePlanRequest>): Record<string, unknown> {
+  const {
+    name,
+    displayName,
+    description,
+    maxProducts,
+    maxUsers,
+    maxLocations,
+    monthlyPrice,
+    annualPrice,
+    isActive,
+    ...rest
+  } = data
+  const body: Record<string, unknown> = { ...rest }
+  if (name !== undefined) body.name = name
+  if (displayName !== undefined) body.displayName = displayName
+  if (description !== undefined) body.description = description
+  if (maxProducts !== undefined && Number.isFinite(maxProducts)) body.maxProducts = maxProducts
+  if (maxUsers !== undefined && Number.isFinite(maxUsers)) body.maxUsers = maxUsers
+  if (maxLocations !== undefined && Number.isFinite(maxLocations)) body.maxLocations = maxLocations
+  if (monthlyPrice !== undefined && Number.isFinite(monthlyPrice)) body.monthlyPrice = monthlyPrice
+  if (annualPrice !== undefined && Number.isFinite(annualPrice)) body.annualPrice = annualPrice
+  if (isActive !== undefined) body.isActive = isActive
+  return body
+}
 
 export interface CreateUserDto {
   fullName: string
@@ -438,7 +470,7 @@ export class ApiClient {
   async createPlan(data: CreateOrUpdatePlanRequest) {
     const raw = await this.request<unknown>('/plan', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(planWriteBody(data)),
     })
     return normalizePlan(raw)
   }
@@ -446,7 +478,7 @@ export class ApiClient {
   async updatePlan(id: string, data: Partial<CreateOrUpdatePlanRequest>) {
     const raw = await this.request<unknown>(`/plan/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(planWriteBody(data)),
     })
     return normalizePlan(raw)
   }

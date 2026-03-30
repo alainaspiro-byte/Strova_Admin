@@ -469,20 +469,25 @@ export function normalizePlan(raw: unknown): SubscriptionPlan {
     'amount',
     'Amount',
   ])
-  const durationDays = pickNum(o, ['durationDays', 'DurationDays', 'duration', 'Duration'])
+  const annualPrice = pickNum(o, ['annualPrice', 'AnnualPrice'])
   const maxProducts = pickNum(o, ['maxProducts', 'MaxProducts', 'productLimit', 'ProductLimit'])
+  const maxUsers = pickNum(o, ['maxUsers', 'MaxUsers'])
+  const maxLocations = pickNum(o, ['maxLocations', 'MaxLocations'])
 
   const displayName = pick(o, ['displayName', 'DisplayName'])
   const slugName = pick(o, ['name', 'Name'], 'Plan')
   const name = displayName || slugName
+  const description = pick(o, ['description', 'Description'])
 
   return {
     id,
     name,
     price,
-    /** 0 = la API no envía duración en días (mostrar "—" en la tabla) */
-    durationDays: durationDays > 0 ? durationDays : 0,
+    annualPrice: Number.isFinite(annualPrice) ? annualPrice : 0,
     productLimit: Number.isFinite(maxProducts) ? maxProducts : 0,
+    maxUsers: Number.isFinite(maxUsers) ? maxUsers : 0,
+    maxLocations: Number.isFinite(maxLocations) ? maxLocations : 0,
+    description: description || undefined,
     createdAt: pick(o, ['createdAt', 'CreatedAt']) || '',
     updatedAt: pick(o, ['updatedAt', 'UpdatedAt']) || '',
     priceHistory: [],
