@@ -1,137 +1,411 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
-import { Subscription } from '@/lib/types'
-import {
-  type SubscriptionLifecycleStatus,
-  statusMatchesFilter,
-} from '@/lib/subscriptionStatus'
-import { StatusBadge, PlanBadge, formatDate, daysUntil } from './Badges'
-import { RowActions } from './RowActions'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { apiClient, errorMessage, isApiError } from '@/lib/api'
+import type { ApiSubscription, ApiPlan, ApiSubscriptionStatus } from '@/lib/subscriptionApiTypes'
 
-type Tab = 'all' | SubscriptionLifecycleStatus
-type ExpirationFilter = 'all' | 'expiring-soon' | 'expired'
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'all', label: 'Todas' },
-  { key: 'pending', label: 'Pendientes' },
-  { key: 'active', label: 'Activas' },
-  { key: 'rejected', label: 'Rechazadas' },
-  { key: 'canceled', label: 'Canceladas' },
-  { key: 'expired', label: 'Vencidas' },
-]
-
-const EXPIRATION_FILTERS: { key: ExpirationFilter; label: string }[] = [
-  { key: 'all', label: 'Todos' },
-  { key: 'expiring-soon', label: 'Vencen pronto' },
-  { key: 'expired', label: 'Vencidos' },
-]
-
+const PER_PAGE = 10
 const shell =
   'bg-white dark:bg-[#111827] rounded-xl border border-slate-200 shadow-sm dark:border-white/[0.06] dark:shadow-none overflow-hidden'
+const modalPanel =
+  'bg-white dark:bg-[#1a2332] border border-slate-200 dark:border-white/[0.08] rounded-xl p-4 w-full max-w-md space-y-3 shadow-xl dark:shadow-none'
+const field =
+  'w-full px-3 py-2 text-xs bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white'
 
-function sanitizePhone(phone: string): string {
-  return phone.replace(/\D/g, '')
-}
+type TabKey = 'all' | ApiSubscriptionStatus
 
-function emptyMessage(tab: Tab, hasSearch: boolean): string {
-  if (hasSearch) return 'No hay resultados para tu búsqueda'
-  switch (tab) {
-    case 'pending':
-      return 'No hay suscripciones pendientes 🎉'
-    case 'active':
-      return 'No hay suscripciones activas'
-    case 'rejected':
-      return 'No hay suscripciones rechazadas'
-    case 'canceled':
-      return 'No hay suscripciones canceladas'
-    case 'expired':
-      return 'No hay suscripciones vencidas'
-    default:
-      return 'No hay suscripciones registradas'
+const TABS: { key: TabKey; label: string; apiStatus?: ApiSubscriptionStatus }[] = [
+  { key: 'all', label: 'Todas' },
+  { key: 'pending', label: 'Pendientes', apiStatus: 'pending' },
+  { key: 'active', label: 'Activas', apiStatus: 'active' },
+  { key: 'rejected', label: 'Rechazadas', apiStatus: 'rejected' },
+  { key: 'cancelled', label: 'Canceladas', apiStatus: 'cancelled' },
+  { key: 'expired', label: 'Vencidas', apiStatus: 'expired' },
+]
+
+function formatDateShort(iso: string | null): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  } catch {
+    return '—'
   }
 }
 
-export function SubscriptionsTable({
-  initial,
-  onRemoteUpdate,
-}: {
-  initial: Subscription[]
-  /** Tras aprobar/renovar/cambiar plan vía API */
-  onRemoteUpdate?: () => void | Promise<void>
-}) {
-  const [data, setData] = useState(initial)
-  useEffect(() => {
-    setData(initial)
-  }, [initial])
-
-  const [tab, setTab] = useState<Tab>('all')
-  const [planFilter, setPlanFilter] = useState<string>('all')
-  const [expirationFilter, setExpirationFilter] = useState<ExpirationFilter>('all')
-  const [search, setSearch] = useState('')
-
-  const counts = useMemo(
-    () => ({
-      all: data.length,
-      pending: data.filter((s) => statusMatchesFilter(s.status, 'pending')).length,
-      active: data.filter((s) => statusMatchesFilter(s.status, 'active')).length,
-      rejected: data.filter((s) => statusMatchesFilter(s.status, 'rejected')).length,
-      canceled: data.filter((s) => statusMatchesFilter(s.status, 'canceled')).length,
-      expired: data.filter((s) => statusMatchesFilter(s.status, 'expired')).length,
-    }),
-    [data]
-  )
-
-  /** Planes únicos presentes en los datos actuales */
-  const planOptions = useMemo(() => {
-    const seen = new Map<string, string>()
-    data.forEach((s) => {
-      const key = s.planId ?? s.planName ?? s.plan
-      if (!key) return
-      const label = s.planName || String(s.plan)
-      seen.set(String(key), label)
+function formatDateLong(iso: string | null): string {
+  if (!iso) return ''
+  try {
+    return new Date(iso).toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
     })
-    return Array.from(seen.entries()).map(([key, label]) => ({ key, label }))
-  }, [data])
+  } catch {
+    return ''
+  }
+}
 
-  const filtered = useMemo(
-    () =>
-      data.filter((s) => {
-        if (!statusMatchesFilter(s.status, tab)) return false
-        if (planFilter !== 'all') {
-          const key = String(s.planId ?? s.planName ?? s.plan ?? '')
-          if (key !== planFilter) return false
-        }
-        if (expirationFilter !== 'all') {
-          const rd =
-            s.remainingDays !== undefined && s.remainingDays !== null
-              ? s.remainingDays
-              : daysUntil(s.expiresAt)
-          if (expirationFilter === 'expiring-soon' && (rd === null || rd > 7 || rd < 0)) return false
-          if (expirationFilter === 'expired' && (rd === null || rd >= 0)) return false
-        }
-        if (search) {
-          const q = search.toLowerCase()
-          const name = (s.businessName || '').toLowerCase()
-          const mail = (s.contactEmail || '').toLowerCase()
-          if (!name.includes(q) && !mail.includes(q)) return false
-        }
-        return true
-      }),
-    [data, tab, planFilter, expirationFilter, search]
+function waDigits(phone: string | null | undefined): string {
+  if (!phone) return ''
+  return phone.replace(/\D/g, '')
+}
+
+function StatusBadgeRow({ sub }: { sub: ApiSubscription }) {
+  const st = sub.status
+  const base =
+    'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium ring-1 ring-inset'
+  if (st === 'pending') {
+    return (
+      <span
+        className={`${base} bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:ring-amber-500/25`}
+      >
+        Pendiente
+      </span>
+    )
+  }
+  if (st === 'active') {
+    return (
+      <span
+        className={`${base} bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:ring-emerald-500/25`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+        Activa
+      </span>
+    )
+  }
+  if (st === 'rejected') {
+    return (
+      <span
+        className={`${base} bg-rose-100 text-rose-800 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:ring-rose-500/25`}
+      >
+        Rechazada
+      </span>
+    )
+  }
+  if (st === 'cancelled') {
+    return (
+      <span
+        className={`${base} bg-slate-100 text-slate-600 ring-slate-200 dark:bg-white/5 dark:text-white/30 dark:ring-white/10`}
+      >
+        Cancelada
+      </span>
+    )
+  }
+  if (st === 'expired') {
+    return (
+      <span
+        className={`${base} bg-red-100 text-red-800 ring-red-200 dark:bg-red-500/15 dark:text-red-400 dark:ring-red-500/25`}
+      >
+        Vencida
+      </span>
+    )
+  }
+  return <span className={base}>{st}</span>
+}
+
+function PendingExtraBadge({ sub }: { sub: ApiSubscription }) {
+  if (sub.status !== 'pending' || sub.daysRemaining !== 0) return null
+  return (
+    <span className="ml-1.5 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-200/80 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">
+      Sin respuesta
+    </span>
   )
+}
+
+function ExpirationCell({ sub }: { sub: ApiSubscription }) {
+  const st = sub.status
+  if (st === 'pending') {
+    return <span className="text-xs text-slate-400 dark:text-white/25">—</span>
+  }
+  if (st === 'rejected' || st === 'cancelled') {
+    return <span className="text-xs text-slate-400 dark:text-white/25">—</span>
+  }
+  if (st === 'expired') {
+    return (
+      <span className="text-xs font-medium text-red-600 dark:text-red-400">
+        {formatDateShort(sub.endDate)}
+      </span>
+    )
+  }
+  if (st === 'active') {
+    const dr = sub.daysRemaining
+    const date = formatDateShort(sub.endDate)
+    if (dr === 0) {
+      return (
+        <div>
+          <div className="text-xs text-slate-600 dark:text-white/50">{date}</div>
+          <div className="text-xs text-red-600 dark:text-red-400 mt-0.5">Vence hoy</div>
+        </div>
+      )
+    }
+    const warn = dr <= 7
+    return (
+      <div>
+        <div className="text-xs text-slate-600 dark:text-white/50">{date}</div>
+        <div
+          className={`text-xs mt-0.5 ${
+            warn ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-white/20'
+          }`}
+        >
+          {dr} días
+        </div>
+      </div>
+    )
+  }
+  return <span className="text-xs text-slate-400 dark:text-white/25">—</span>
+}
+
+function buildWaMessage(sub: ApiSubscription): string {
+  const name = sub.adminContact?.fullName ?? sub.organization.name
+  const plan = sub.plan.displayName
+  const monthly = sub.plan.monthlyPrice
+  const end = formatDateLong(sub.endDate)
+
+  if (sub.status === 'pending') {
+    return `Hola ${name}, te contactamos desde Strova para confirmar el pago de tu solicitud al plan ${plan} ($${monthly}/mes). Por favor confírmanos cuando hayas realizado el pago.`
+  }
+  if (sub.status === 'active') {
+    return `Hola ${name}, tu suscripción al plan ${plan} en Strova vence el ${end}. ¿Deseas renovarla?`
+  }
+  if (sub.status === 'expired') {
+    return `Hola ${name}, tu suscripción al plan ${plan} en Strova venció el ${end}. ¿Te gustaría renovarla?`
+  }
+  return ''
+}
+
+export function SubscriptionsTable() {
+  const [tab, setTab] = useState<TabKey>('all')
+  const [planId, setPlanId] = useState<number | null>(null)
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [items, setItems] = useState<ApiSubscription[]>([])
+  const [pagination, setPagination] = useState<import('@/lib/subscriptionApiTypes').SubscriptionPagination | null>(
+    null
+  )
+  const [requestMap, setRequestMap] = useState<Map<number, number>>(new Map())
+  const [plans, setPlans] = useState<ApiPlan[]>([])
+  const [tabCounts, setTabCounts] = useState<Partial<Record<TabKey, number>>>({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  const [modal, setModal] = useState<
+    'none' | 'approve' | 'reject' | 'change' | 'renew'
+  >('none')
+  const [activeSub, setActiveSub] = useState<ApiSubscription | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [paymentRef, setPaymentRef] = useState('')
+  const [planPick, setPlanPick] = useState<number>(0)
+  const [cyclePick, setCyclePick] = useState<'monthly' | 'annual'>('monthly')
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [search])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  const loadTabCounts = useCallback(async () => {
+    try {
+      const [all, pending, active, rejected, cancelled, expired] = await Promise.all([
+        apiClient.getSubscriptionList({ page: 1, perPage: 1, status: 'all' }).then((r) => r.pagination?.totalCount ?? 0),
+        apiClient.getSubscriptionStatusCount('pending'),
+        apiClient.getSubscriptionStatusCount('active'),
+        apiClient.getSubscriptionStatusCount('rejected'),
+        apiClient.getSubscriptionStatusCount('cancelled'),
+        apiClient.getSubscriptionStatusCount('expired'),
+      ])
+      setTabCounts({
+        all,
+        pending,
+        active,
+        rejected,
+        cancelled,
+        expired,
+      })
+    } catch {
+      /* conteos opcionales */
+    }
+  }, [])
+
+  const loadPlans = useCallback(async () => {
+    try {
+      const list = await apiClient.getPlansCatalogApi()
+      setPlans(list.filter((p) => p.isActive))
+    } catch {
+      setPlans([])
+    }
+  }, [])
+
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const statusFilter =
+        tab === 'all' ? 'all' : (tab as ApiSubscriptionStatus)
+      const [listRes, map] = await Promise.all([
+        apiClient.getSubscriptionList({
+          page,
+          perPage: PER_PAGE,
+          status: statusFilter,
+          planId: planId ?? undefined,
+        }),
+        apiClient.getPendingSubscriptionRequestMap(),
+      ])
+      setItems(listRes.items)
+      setPagination(listRes.pagination)
+      setRequestMap(map)
+    } catch (e) {
+      setError(
+        isApiError(e) && e.status === 403
+          ? 'Sin permisos'
+          : errorMessage(e, 'Error al cargar datos')
+      )
+      setItems([])
+      setPagination(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [tab, page, planId])
+
+  useEffect(() => {
+    loadPlans()
+  }, [loadPlans])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    loadTabCounts()
+  }, [loadTabCounts])
+
+  const filteredItems = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase()
+    if (!q) return items
+    return items.filter((s) => s.organization.name.toLowerCase().includes(q))
+  }, [items, debouncedSearch])
+
+  const closeModal = () => {
+    setModal('none')
+    setActiveSub(null)
+    setNotes('')
+    setPaymentRef('')
+    setBusy(false)
+  }
+
+  const showToast = (type: 'ok' | 'err', text: string) => setToast({ type, text })
+
+  const runAction = async (fn: () => Promise<unknown>, successMsg: string) => {
+    setBusy(true)
+    try {
+      await fn()
+      showToast('ok', successMsg)
+      closeModal()
+      await loadData()
+      await loadTabCounts()
+    } catch (e) {
+      showToast('err', errorMessage(e, 'Error'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const selectTab = (k: TabKey) => {
+    setTab(k)
+    setPage(1)
+  }
+
+  const selectPlan = (id: number | null) => {
+    setPlanId(id)
+    setPage(1)
+  }
+
+  const openApprove = (sub: ApiSubscription) => {
+    setActiveSub(sub)
+    setNotes('')
+    setPaymentRef('')
+    setModal('approve')
+  }
+
+  const openReject = (sub: ApiSubscription) => {
+    setActiveSub(sub)
+    setNotes('')
+    setModal('reject')
+  }
+
+  const openChange = (sub: ApiSubscription) => {
+    setActiveSub(sub)
+    setNotes('')
+    setPaymentRef('')
+    setPlanPick(sub.plan.id)
+    setCyclePick(sub.billingCycle)
+    setModal('change')
+  }
+
+  const openRenew = (sub: ApiSubscription) => {
+    setActiveSub(sub)
+    setModal('renew')
+  }
+
+  const totalCount = pagination?.totalCount ?? 0
+  const currentPage = pagination?.currentPage ?? page
+
+  const emptyMessage = () => {
+    if (debouncedSearch.trim()) return 'No hay resultados para tu búsqueda'
+    switch (tab) {
+      case 'pending':
+        return 'No hay suscripciones pendientes'
+      case 'active':
+        return 'No hay suscripciones activas'
+      case 'rejected':
+        return 'No hay suscripciones rechazadas'
+      case 'cancelled':
+        return 'No hay suscripciones canceladas'
+      case 'expired':
+        return 'No hay suscripciones vencidas'
+      default:
+        return 'No hay suscripciones'
+    }
+  }
 
   return (
-    <div className={shell}>
-      {/* Toolbar */}
-      <div className="px-4 py-3 border-b border-slate-200 dark:border-white/[0.06] space-y-3">
-        {/* Tabs */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex gap-0.5 flex-wrap">
+    <div className="space-y-3">
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 z-[200] max-w-sm px-4 py-3 rounded-lg text-sm shadow-lg border ${
+            toast.type === 'ok'
+              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200'
+              : 'bg-red-500/15 border-red-500/30 text-red-200'
+          }`}
+        >
+          {toast.text}
+        </div>
+      )}
+
+      <div className={shell}>
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-white/[0.06] space-y-3">
+          <div className="flex flex-wrap gap-0.5">
             {TABS.map((t) => (
               <button
                 key={t.key}
-                onClick={() => setTab(t.key)}
+                type="button"
+                onClick={() => selectTab(t.key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   tab === t.key
                     ? 'bg-slate-200 text-slate-900 dark:bg-white/10 dark:text-white'
@@ -139,217 +413,475 @@ export function SubscriptionsTable({
                 }`}
               >
                 {t.label}
-                <span
-                  className={`ml-1.5 tabular-nums ${
-                    tab === t.key ? 'text-slate-600 dark:text-white/40' : 'text-slate-400 dark:text-white/20'
-                  }`}
-                >
-                  {counts[t.key]}
+                <span className="ml-1.5 tabular-nums text-slate-400 dark:text-white/25">
+                  ({tabCounts[t.key] ?? '—'})
                 </span>
               </button>
             ))}
           </div>
 
-          <div className="relative">
-            <svg
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-white/20"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs text-slate-500 dark:text-white/30">Plan:</span>
+            <select
+              value={planId ?? ''}
+              onChange={(e) =>
+                selectPlan(e.target.value === '' ? null : Number(e.target.value))
+              }
+              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-1 focus:ring-blue-500/50 dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/70"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+              <option value="">Todos los planes</option>
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
+              ))}
+            </select>
+
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-white/20"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
+              </svg>
+              <input
+                type="text"
+                placeholder="Buscar por negocio…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 pr-3 py-1.5 text-xs w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 outline-none focus:ring-1 focus:ring-blue-500/50 dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/70"
               />
-            </svg>
-            <input
-              type="text"
-              placeholder="Buscar negocio o correo..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 w-52 transition-colors dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/70 dark:placeholder-white/20"
-            />
+            </div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs text-slate-500 dark:text-white/30">Filtros:</span>
-          <select
-            value={planFilter}
-            onChange={(e) => setPlanFilter(e.target.value)}
-            className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors cursor-pointer dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/70"
-          >
-            <option value="all" className="bg-white dark:bg-[#111827]">
-              Todos los planes
-            </option>
-            {planOptions.map((f) => (
-              <option key={f.key} value={f.key} className="bg-white dark:bg-[#111827]">
-                {f.label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={expirationFilter}
-            onChange={(e) => setExpirationFilter(e.target.value as ExpirationFilter)}
-            className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 transition-colors cursor-pointer dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/70"
-          >
-            {EXPIRATION_FILTERS.map((f) => (
-              <option key={f.key} value={f.key} className="bg-white dark:bg-[#111827]">
-                {f.label}
-              </option>
-            ))}
-          </select>
-
-          {(planFilter !== 'all' || expirationFilter !== 'all') && (
+        {error && !loading && (
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-white/[0.06] space-y-2">
+            <p className="text-sm text-red-400">⚠️ {error}</p>
             <button
-              onClick={() => {
-                setPlanFilter('all')
-                setExpirationFilter('all')
-              }}
-              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/50 dark:hover:text-white/70 dark:hover:bg-white/[0.06]"
+              type="button"
+              onClick={() => loadData()}
+              className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white/80"
             >
-              Limpiar filtros
+              Reintentar
             </button>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-200 dark:border-white/[0.04]">
-              {['Negocio', 'Email', 'Plan', 'Estado', 'Vencimiento', 'WhatsApp', 'Acciones'].map((h) => (
-                <th
-                  key={h}
-                  className="text-left text-[10px] font-semibold text-slate-400 dark:text-white/20 uppercase tracking-widest px-4 py-3"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center py-16 text-sm text-slate-400 dark:text-white/20">
-                  {emptyMessage(tab, Boolean(search))}
-                </td>
-              </tr>
-            ) : (
-              filtered.map((sub, i) => {
-                const daysFromApi =
-                  sub.remainingDays !== undefined && sub.remainingDays !== null ? sub.remainingDays : null
-                const days = daysFromApi !== null ? daysFromApi : daysUntil(sub.expiresAt)
-                const soonExpiring = days !== null && days <= 7 && days > 0
-                const rawWa =
-                  (sub.whatsAppContact && sub.whatsAppContact !== '—' ? sub.whatsAppContact : '') ||
-                  sub.contactPhone ||
-                  ''
-                const waDigits = sanitizePhone(rawWa)
-                const waUrl = waDigits ? `https://wa.me/${waDigits}` : '#'
-
-                return (
-                  <tr
-                    key={sub.id}
-                    className={`border-b border-slate-200 dark:border-white/[0.03] hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors ${
-                      i === filtered.length - 1 ? 'border-b-0' : ''
-                    }`}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-white/[0.04]">
+                {['Negocio', 'Plan', 'Estado', 'Vencimiento', 'WhatsApp', 'Acciones'].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left text-[10px] font-semibold text-slate-400 dark:text-white/20 uppercase tracking-widest px-4 py-3"
                   >
-                    <td className="px-4 py-3.5">
-                      <div className="font-medium text-sm text-slate-800 dark:text-white/80">
-                        {sub.businessName || '—'}
-                      </div>
-                      {sub.notes && (
-                        <div className="text-xs text-amber-400/70 mt-1 flex items-center gap-1">
-                          <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path
-                              fillRule="evenodd"
-                              d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          <span className="truncate max-w-[180px]">{sub.notes}</span>
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-white/50">
-                      {sub.contactEmail && sub.contactEmail !== '—' ? sub.contactEmail : '—'}
-                    </td>
-
-                    <td className="px-4 py-3.5">
-                      <PlanBadge plan={sub.plan} planLabel={sub.planName} amount={sub.amount} />
-                    </td>
-
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={sub.status} />
-                    </td>
-
-                    <td className="px-4 py-3.5">
-                      <div
-                        className={`text-xs font-medium ${
-                          soonExpiring
-                            ? 'text-amber-600 dark:text-amber-400'
-                            : 'text-slate-600 dark:text-white/50'
-                        }`}
-                      >
-                        {formatDate(sub.expiresAt)}
-                      </div>
-                      {days !== null && (
-                        <div
-                          className={`text-xs mt-0.5 ${
-                            days <= 0
-                              ? 'text-red-600 dark:text-red-400'
-                              : soonExpiring
-                                ? 'text-amber-600/90 dark:text-amber-400/70'
-                                : 'text-slate-400 dark:text-white/20'
-                          }`}
-                        >
-                          {days <= 0 ? 'Vencida' : days === 1 ? 'Vence mañana' : `${days} días`}
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3.5 text-xs">
-                      {waDigits ? (
-                        <a
-                          href={waUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-emerald-500 hover:underline"
-                        >
-                          {rawWa || waDigits}
-                        </a>
-                      ) : (
-                        <span className="text-slate-400 dark:text-white/25">—</span>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-3.5">
-                      <RowActions sub={sub} onRemoteUpdate={onRemoteUpdate} />
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: PER_PAGE }).map((_, i) => (
+                  <tr key={i} className="border-b border-slate-200 dark:border-white/[0.03]">
+                    <td colSpan={6} className="px-4 py-3">
+                      <div className="h-4 rounded bg-slate-200/80 dark:bg-white/10 animate-pulse" />
                     </td>
                   </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
+                ))
+              ) : filteredItems.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-16 text-center text-sm text-slate-400 dark:text-white/20" colSpan={6}>
+                    {emptyMessage()}
+                  </td>
+                </tr>
+              ) : (
+                filteredItems.map((sub) => {
+                  const reqId = requestMap.get(sub.id)
+                  const phone = sub.adminContact?.phone
+                  const digits = waDigits(phone)
+                  const msg = buildWaMessage(sub)
+                  const canWa =
+                    digits &&
+                    (sub.status === 'pending' || sub.status === 'active' || sub.status === 'expired')
+
+                  return (
+                    <tr
+                      key={sub.id}
+                      className="border-b border-slate-200 dark:border-white/[0.03] hover:bg-slate-50 dark:hover:bg-white/[0.02]"
+                    >
+                      <td className="px-4 py-3.5">
+                        <div className="font-medium text-sm text-slate-800 dark:text-white/80">
+                          {sub.organization.name}
+                        </div>
+                        <div className="text-[10px] text-slate-400 dark:text-white/25 font-mono">
+                          {sub.organization.code}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-white/50">
+                        {sub.plan.displayName}
+                        <span className="text-slate-400 dark:text-white/25"> · </span>
+                        {sub.billingCycle === 'annual' ? 'Anual' : 'Mensual'}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-wrap items-center gap-1">
+                          <StatusBadgeRow sub={sub} />
+                          <PendingExtraBadge sub={sub} />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <ExpirationCell sub={sub} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {canWa ? (
+                          <a
+                            href={`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                            title="WhatsApp"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                            </svg>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-slate-400 dark:text-white/20">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <ActionsCell
+                          sub={sub}
+                          requestId={reqId}
+                          onApprove={() => openApprove(sub)}
+                          onReject={() => openReject(sub)}
+                          onChange={() => openChange(sub)}
+                          onRenew={() => openRenew(sub)}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {!loading && pagination && totalCount > 0 && (
+          <div className="px-4 py-2.5 border-t border-slate-200 dark:border-white/[0.04] flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-slate-400 dark:text-white/20">
+              Mostrando
+              {filteredItems.length === 0
+                ? ' 0 '
+                : ` ${(currentPage - 1) * (pagination.pageSize || PER_PAGE) + 1}–${(currentPage - 1) * (pagination.pageSize || PER_PAGE) + filteredItems.length} `}
+              de {totalCount} suscripciones
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={!pagination.hasPreviousPage}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1 text-xs rounded-lg border border-slate-200 dark:border-white/[0.08] disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                disabled={!pagination.hasNextPage}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1 text-xs rounded-lg border border-slate-200 dark:border-white/[0.08] disabled:opacity-40"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Footer */}
-      {filtered.length > 0 && (
-        <div className="px-4 py-2.5 border-t border-slate-200 dark:border-white/[0.04]">
-          <span className="text-xs text-slate-400 dark:text-white/20">
-            {filtered.length} {filtered.length === 1 ? 'suscripción' : 'suscripciones'}
-            {(tab !== 'all' || search) && ` · ${data.length} en total`}
-          </span>
+      {modal === 'approve' && activeSub && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Aprobar solicitud</h3>
+            <input
+              placeholder="Referencia de pago (opcional)"
+              value={paymentRef}
+              onChange={(e) => setPaymentRef(e.target.value)}
+              className={field}
+              disabled={busy}
+            />
+            <textarea
+              placeholder="Notas (opcional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={`${field} min-h-[60px]`}
+              disabled={busy}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={closeModal}
+                className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={busy || !requestMap.get(activeSub.id)}
+                title={!requestMap.get(activeSub.id) ? 'Solicitud no encontrada' : undefined}
+                onClick={() => {
+                  const rid = requestMap.get(activeSub.id)
+                  if (!rid) return
+                  runAction(
+                    () =>
+                      apiClient.approveSubscriptionRequest(rid, {
+                        notes: notes || '',
+                        paymentReference: paymentRef || '',
+                      }),
+                    `Suscripción de ${activeSub.organization.name} aprobada correctamente`
+                  )
+                }}
+                className="px-3 py-1.5 text-xs rounded-lg bg-emerald-500/20 text-emerald-400 disabled:opacity-40"
+              >
+                {busy ? '…' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal === 'reject' && activeSub && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Rechazar solicitud</h3>
+            <textarea
+              placeholder="Motivo (obligatorio)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={`${field} min-h-[72px]`}
+              disabled={busy}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={closeModal}
+                className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={busy || !notes.trim() || !requestMap.get(activeSub.id)}
+                title={!requestMap.get(activeSub.id) ? 'Solicitud no encontrada' : undefined}
+                onClick={() => {
+                  const rid = requestMap.get(activeSub.id)
+                  if (!rid) return
+                  runAction(
+                    () => apiClient.rejectSubscriptionRequest(rid, { notes: notes.trim() }),
+                    `Solicitud de ${activeSub.organization.name} rechazada`
+                  )
+                }}
+                className="px-3 py-1.5 text-xs rounded-lg bg-red-500/20 text-red-400 disabled:opacity-40"
+              >
+                {busy ? '…' : 'Rechazar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal === 'change' && activeSub && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Cambiar plan</h3>
+            <label className="block text-[11px] text-slate-500 dark:text-white/50">Plan</label>
+            <select
+              value={planPick}
+              onChange={(e) => setPlanPick(Number(e.target.value))}
+              className={field}
+              disabled={busy}
+            >
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
+              ))}
+            </select>
+            <label className="block text-[11px] text-slate-500 dark:text-white/50">Ciclo</label>
+            <select
+              value={cyclePick}
+              onChange={(e) => setCyclePick(e.target.value as 'monthly' | 'annual')}
+              className={field}
+              disabled={busy}
+            >
+              <option value="monthly">Mensual</option>
+              <option value="annual">Anual</option>
+            </select>
+            <input
+              placeholder="Referencia de pago (opcional)"
+              value={paymentRef}
+              onChange={(e) => setPaymentRef(e.target.value)}
+              className={field}
+              disabled={busy}
+            />
+            <textarea
+              placeholder="Notas (opcional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={`${field} min-h-[50px]`}
+              disabled={busy}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={closeModal}
+                className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={busy || !planPick}
+                onClick={() =>
+                  runAction(
+                    () =>
+                      apiClient.changePlanSubscription(activeSub.id, {
+                        planId: planPick,
+                        billingCycle: cyclePick,
+                        notes: notes || '',
+                        paymentReference: paymentRef || '',
+                      }),
+                    `Plan actualizado para ${activeSub.organization.name}`
+                  )
+                }
+                className="px-3 py-1.5 text-xs rounded-lg bg-blue-500/20 text-blue-400"
+              >
+                {busy ? '…' : 'Cambiar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal === 'renew' && activeSub && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
+          <div className={modalPanel}>
+            <p className="text-sm text-slate-800 dark:text-white/90">
+              ¿Renovar suscripción de {activeSub.organization.name}?
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={closeModal}
+                className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  runAction(
+                    () => apiClient.renewSubscriptionEmpty(activeSub.id),
+                    `Suscripción de ${activeSub.organization.name} renovada`
+                  )
+                }
+                className="px-3 py-1.5 text-xs rounded-lg bg-amber-500/20 text-amber-400"
+              >
+                {busy ? '…' : 'Renovar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   )
+}
+
+function ActionsCell({
+  sub,
+  requestId,
+  onApprove,
+  onReject,
+  onChange,
+  onRenew,
+}: {
+  sub: ApiSubscription
+  requestId: number | undefined
+  onApprove: () => void
+  onReject: () => void
+  onChange: () => void
+  onRenew: () => void
+}) {
+  const st = sub.status
+  if (st === 'pending') {
+    const missing = !requestId
+    return (
+      <div className="flex flex-wrap gap-1 justify-end">
+        <button
+          type="button"
+          onClick={onApprove}
+          disabled={missing}
+          title={missing ? 'Solicitud no encontrada' : undefined}
+          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-40"
+        >
+          Aprobar
+        </button>
+        <button
+          type="button"
+          onClick={onReject}
+          disabled={missing}
+          title={missing ? 'Solicitud no encontrada' : undefined}
+          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 disabled:opacity-40"
+        >
+          Rechazar
+        </button>
+      </div>
+    )
+  }
+  if (st === 'active') {
+    return (
+      <div className="flex flex-wrap gap-1 justify-end">
+        <button
+          type="button"
+          onClick={onChange}
+          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-white/50 dark:hover:bg-white/10"
+        >
+          Cambiar plan
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Próximamente"
+          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-slate-500/10 text-slate-400 cursor-not-allowed opacity-50"
+        >
+          Dar de baja
+        </button>
+      </div>
+    )
+  }
+  if (st === 'expired') {
+    return (
+      <button
+        type="button"
+        onClick={onRenew}
+        className="px-2 py-1 rounded-lg text-[11px] font-medium bg-amber-500/15 text-amber-400 hover:bg-amber-500/25"
+      >
+        Renovar
+      </button>
+    )
+  }
+  return <span className="text-[11px] text-slate-400 dark:text-white/20">—</span>
 }

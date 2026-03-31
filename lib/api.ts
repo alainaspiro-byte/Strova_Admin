@@ -1,4 +1,11 @@
 import { SubscriptionStats } from './types'
+import type { ApiSubscription, SubscriptionPagination, ApiPlan } from './subscriptionApiTypes'
+import {
+  parseSubscriptionListResponse,
+  parsePlanListResponse,
+  parseSubscriptionRequestsResponse,
+} from './subscriptionApiParse'
+import { parseApiSubscription, parseApiPlan } from './parseApiSubscription'
 import {
   extractPaginated,
   extractJwtFromLoginResponse,
@@ -200,6 +207,31 @@ export function computeDashboardStats(subs: Subscription[]): SubscriptionStats {
   }
 }
 
+export function computeDashboardStatsFromApi(subs: ApiSubscription[]): SubscriptionStats {
+  const active = subs.filter((s) => s.status === 'active').length
+  const pending = subs.filter((s) => s.status === 'pending').length
+  const monthlyRevenue = subs
+    .filter((s) => s.status === 'active')
+    .reduce((sum, s) => {
+      const m =
+        s.billingCycle === 'annual' ? s.plan.annualPrice / 12 : s.plan.monthlyPrice
+      return sum + (Number.isFinite(m) ? m : 0)
+    }, 0)
+  const now = Date.now()
+  const weekMs = 7 * 86400000
+  const expiringThisWeek = subs.filter((s) => {
+    if (s.status !== 'active' || !s.endDate) return false
+    const t = new Date(s.endDate).getTime()
+    return t >= now && t <= now + weekMs
+  }).length
+  return {
+    active,
+    pending,
+    monthlyRevenue: Math.round(monthlyRevenue * 100) / 100,
+    expiringThisWeek,
+  }
+}
+
 export class ApiClient {
   private baseUrl: string
 
@@ -242,6 +274,15 @@ export class ApiClient {
     }
 
     if (!response.ok) {
+      if (response.status === 401 && !skipAuth && typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('user')
+        window.location.href = '/login'
+      }
+      if (response.status === 403) {
+        throw { message: 'Sin permisos', status: 403 } as ApiError
+      }
       const error = await response.json().catch(() => ({}))
       const baseMsg = (error as { message?: string }).message || `Error ${response.status}`
       let hint = ''
@@ -386,9 +427,120 @@ export class ApiClient {
    * y, si hace falta, el conteo de solicitudes pendientes.
    */
   async getDashboardStats(): Promise<SubscriptionStats> {
-    const perPage = 500
-    const subsRes = await this.getSubscriptions({ page: 1, perPage })
-    return computeDashboardStats(subsRes.items)
+    try {
+      const { items } = await this.getSubscriptionList({ page: 1, perPage: 500 })
+      return computeDashboardStatsFromApi(items)
+    } catch {
+      try {
+        const subsRes = await this.getSubscriptions({ page: 1, perPage: 500 })
+        return computeDashboardStats(subsRes.items)
+      } catch {
+        return {
+          active: 0,
+          pending: 0,
+          monthlyRevenue: 0,
+          expiringThisWeek: 0,
+        }
+      }
+    }
+  }
+
+  /** GET /subscription con wrapper { result, pagination }. */
+  async getSubscriptionList(params: {
+    page?: number
+    perPage?: number
+    status?: 'pending' | 'active' | 'rejected' | 'cancelled' | 'expired' | 'all'
+    planId?: number
+  }): Promise<{ items: ApiSubscription[]; pagination: SubscriptionPagination | null }> {
+    const statusParam =
+      params.status && params.status !== 'all' ? params.status : undefined
+    const query = this.buildQuery({
+      page: params.page ?? 1,
+      perPage: params.perPage ?? 10,
+      status: statusParam,
+      planId: params.planId,
+    })
+    const raw = await this.request<unknown>(`/subscription${query}`)
+    const { items: rawItems, pagination } = parseSubscriptionListResponse(raw)
+    return {
+      items: rawItems.map((x) => parseApiSubscription(x)),
+      pagination,
+    }
+  }
+
+  /** Conteo por estado (perPage=1 para minimizar payload). */
+  async getSubscriptionStatusCount(
+    status: 'pending' | 'active' | 'rejected' | 'cancelled' | 'expired'
+  ): Promise<number> {
+    const { pagination } = await this.getSubscriptionList({
+      page: 1,
+      perPage: 1,
+      status,
+    })
+    return pagination?.totalCount ?? 0
+  }
+
+  /** GET /subscription/requests?status=pending — devuelve Map subscriptionId → requestId */
+  async getPendingSubscriptionRequestMap(): Promise<Map<number, number>> {
+    const query = this.buildQuery({ page: 1, perPage: 500, status: 'pending' })
+    const raw = await this.request<unknown>(`/subscription/requests${query}`)
+    const items = parseSubscriptionRequestsResponse(raw)
+    const map = new Map<number, number>()
+    for (const row of items) {
+      const o = row as Record<string, unknown>
+      const rid = Number(o.id ?? o.Id)
+      const sid = Number(o.subscriptionId ?? o.SubscriptionId)
+      if (Number.isFinite(rid) && Number.isFinite(sid) && sid > 0 && rid > 0) {
+        map.set(sid, rid)
+      }
+    }
+    return map
+  }
+
+  /** GET /plan — planes para selectores */
+  async getPlansCatalogApi(): Promise<ApiPlan[]> {
+    const raw = await this.request<unknown>('/plan')
+    const arr = parsePlanListResponse(raw)
+    return arr.map((x) => parseApiPlan(x))
+  }
+
+  async approveSubscriptionRequest(
+    requestId: number | string,
+    body: { notes: string; paymentReference: string }
+  ) {
+    return this.request(`/subscription/requests/${encodeURIComponent(String(requestId))}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+
+  async rejectSubscriptionRequest(requestId: number | string, body: { notes: string }) {
+    return this.request(`/subscription/requests/${encodeURIComponent(String(requestId))}/reject`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+
+  async changePlanSubscription(
+    subscriptionId: number | string,
+    body: {
+      planId: number
+      billingCycle: 'monthly' | 'annual'
+      notes: string
+      paymentReference: string
+    }
+  ) {
+    return this.request(`/subscription/${encodeURIComponent(String(subscriptionId))}/change-plan`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+  }
+
+  /** POST /subscription/{id}/renew sin cuerpo */
+  async renewSubscriptionEmpty(subscriptionId: number | string) {
+    return this.request(`/subscription/${encodeURIComponent(String(subscriptionId))}/renew`, {
+      method: 'POST',
+    })
   }
 
   async getSubscriptionDetail(id: string) {
