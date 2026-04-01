@@ -104,10 +104,11 @@ export interface RejectSubscriptionRequestDto {
   notes: string
 }
 
+/** POST /subscription/{id}/renew — cuerpo exigido por la API. */
 export interface RenewSubscriptionRequest {
-  billingCycle: BillingCycle
-  paymentReference?: string
-  notes?: string
+  billingCycle: 'monthly' | 'annual' | string
+  paymentReference: string
+  notes: string
 }
 
 export interface ChangePlanRequest {
@@ -480,9 +481,14 @@ export class ApiClient {
     return pagination?.totalCount ?? 0
   }
 
-  /** GET /subscription/requests?status=pending — devuelve Map subscriptionId → requestId */
-  async getPendingSubscriptionRequestMap(): Promise<Map<number, number>> {
-    const query = this.buildQuery({ page: 1, perPage: 500, status: 'pending' })
+  /**
+   * GET /subscription/requests?status=… — Map subscriptionId → requestId.
+   * Si hay varias solicitudes por suscripción, se conserva la de id numérico mayor.
+   */
+  async getSubscriptionRequestMap(
+    status: 'pending' | 'rejected'
+  ): Promise<Map<number, number>> {
+    const query = this.buildQuery({ page: 1, perPage: 500, status })
     const raw = await this.request<unknown>(`/subscription/requests${query}`)
     const items = parseSubscriptionRequestsResponse(raw)
     const map = new Map<number, number>()
@@ -491,10 +497,21 @@ export class ApiClient {
       const rid = Number(o.id ?? o.Id)
       const sid = Number(o.subscriptionId ?? o.SubscriptionId)
       if (Number.isFinite(rid) && Number.isFinite(sid) && sid > 0 && rid > 0) {
-        map.set(sid, rid)
+        const prev = map.get(sid)
+        if (prev === undefined || rid > prev) map.set(sid, rid)
       }
     }
     return map
+  }
+
+  /** GET /subscription/requests?status=pending */
+  async getPendingSubscriptionRequestMap(): Promise<Map<number, number>> {
+    return this.getSubscriptionRequestMap('pending')
+  }
+
+  /** GET /subscription/requests?status=rejected — para acciones sobre suscripciones ya rechazadas */
+  async getRejectedSubscriptionRequestMap(): Promise<Map<number, number>> {
+    return this.getSubscriptionRequestMap('rejected')
   }
 
   /** GET /plan — planes para selectores */
@@ -536,22 +553,21 @@ export class ApiClient {
     })
   }
 
-  /** POST /subscription/{id}/renew sin cuerpo */
-  async renewSubscriptionEmpty(subscriptionId: number | string) {
-    return this.request(`/subscription/${encodeURIComponent(String(subscriptionId))}/renew`, {
-      method: 'POST',
-    })
-  }
-
   async getSubscriptionDetail(id: string) {
     const raw = await this.request<unknown>(`/subscription/${encodeURIComponent(id)}`)
     return normalizeSubscription(raw)
   }
 
-  async renewSubscription(id: string, body: RenewSubscriptionRequest) {
-    return this.request(`/subscription/${encodeURIComponent(id)}/renew`, {
+  /** POST /subscription/{id}/renew — requiere JSON con billingCycle, paymentReference y notes. */
+  async renewSubscription(id: number | string, body: RenewSubscriptionRequest) {
+    const payload: RenewSubscriptionRequest = {
+      billingCycle: body.billingCycle,
+      paymentReference: body.paymentReference ?? '',
+      notes: body.notes ?? '',
+    }
+    return this.request(`/subscription/${encodeURIComponent(String(id))}/renew`, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     })
   }
 
@@ -562,11 +578,15 @@ export class ApiClient {
     })
   }
 
-  /** Activa → cancelada. Ajusta la ruta si tu Swagger define otro endpoint. */
-  async cancelSubscription(id: string, body?: { notes?: string }) {
-    return this.request(`/subscription/${encodeURIComponent(id)}/cancel`, {
+  /** POST /subscription/{id}/cancel — suscripción activa → cancelada. */
+  async cancelSubscription(id: number | string, body?: { notes?: string }) {
+    const payload =
+      body?.notes !== undefined && body.notes.trim() !== ''
+        ? { notes: body.notes.trim() }
+        : {}
+    return this.request(`/subscription/${encodeURIComponent(String(id))}/cancel`, {
       method: 'POST',
-      body: JSON.stringify(body ?? {}),
+      body: JSON.stringify(payload),
     })
   }
 

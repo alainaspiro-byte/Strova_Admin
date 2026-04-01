@@ -174,6 +174,12 @@ function buildWaMessage(sub: ApiSubscription): string {
   if (sub.status === 'expired') {
     return `Hola ${name}, tu suscripción al plan ${plan} en Strova venció el ${end}. ¿Te gustaría renovarla?`
   }
+  if (sub.status === 'cancelled') {
+    return `Hola ${name}, tu suscripción al plan ${plan} en Strova está cancelada (vencía el ${end}). ¿Te gustaría renovarla?`
+  }
+  if (sub.status === 'rejected') {
+    return `Hola ${name}, te contactamos desde Strova sobre tu solicitud del plan ${plan}. Si quieres retomar el alta o aclarar algo, escríbenos.`
+  }
   return ''
 }
 
@@ -188,6 +194,7 @@ export function SubscriptionsTable() {
     null
   )
   const [requestMap, setRequestMap] = useState<Map<number, number>>(new Map())
+  const [rejectedRequestMap, setRejectedRequestMap] = useState<Map<number, number>>(new Map())
   const [plans, setPlans] = useState<ApiPlan[]>([])
   const [tabCounts, setTabCounts] = useState<Partial<Record<TabKey, number>>>({})
   const [loading, setLoading] = useState(true)
@@ -195,7 +202,7 @@ export function SubscriptionsTable() {
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const [modal, setModal] = useState<
-    'none' | 'approve' | 'reject' | 'change' | 'renew'
+    'none' | 'approve' | 'reject' | 'change' | 'renew' | 'cancel'
   >('none')
   const [activeSub, setActiveSub] = useState<ApiSubscription | null>(null)
   const [busy, setBusy] = useState(false)
@@ -258,7 +265,7 @@ export function SubscriptionsTable() {
     try {
       const statusFilter =
         tab === 'all' ? 'all' : (tab as ApiSubscriptionStatus)
-      const [listRes, map] = await Promise.all([
+      const [listRes, mapPending, mapRejected] = await Promise.all([
         apiClient.getSubscriptionList({
           page,
           perPage: PER_PAGE,
@@ -266,10 +273,12 @@ export function SubscriptionsTable() {
           planId: planId ?? undefined,
         }),
         apiClient.getPendingSubscriptionRequestMap(),
+        apiClient.getRejectedSubscriptionRequestMap(),
       ])
       setItems(listRes.items)
       setPagination(listRes.pagination)
-      setRequestMap(map)
+      setRequestMap(mapPending)
+      setRejectedRequestMap(mapRejected)
     } catch (e) {
       setError(
         isApiError(e) && e.status === 403
@@ -278,6 +287,8 @@ export function SubscriptionsTable() {
       )
       setItems([])
       setPagination(null)
+      setRequestMap(new Map())
+      setRejectedRequestMap(new Map())
     } finally {
       setLoading(false)
     }
@@ -360,11 +371,26 @@ export function SubscriptionsTable() {
 
   const openRenew = (sub: ApiSubscription) => {
     setActiveSub(sub)
+    setNotes('')
+    setPaymentRef('')
+    setCyclePick(sub.billingCycle)
     setModal('renew')
+  }
+
+  const openCancel = (sub: ApiSubscription) => {
+    setActiveSub(sub)
+    setNotes('')
+    setModal('cancel')
   }
 
   const totalCount = pagination?.totalCount ?? 0
   const currentPage = pagination?.currentPage ?? page
+
+  /** Id de solicitud para aprobar: pendientes desde cola pending; rechazadas desde cola rejected (re-aprobación). */
+  const resolveRequestIdForApprove = (sub: ApiSubscription) =>
+    sub.status === 'rejected'
+      ? rejectedRequestMap.get(sub.id) ?? requestMap.get(sub.id)
+      : requestMap.get(sub.id)
 
   const emptyMessage = () => {
     if (debouncedSearch.trim()) return 'No hay resultados para tu búsqueda'
@@ -506,13 +532,20 @@ export function SubscriptionsTable() {
                 </tr>
               ) : (
                 filteredItems.map((sub) => {
-                  const reqId = requestMap.get(sub.id)
+                  const reqId =
+                    sub.status === 'rejected'
+                      ? resolveRequestIdForApprove(sub)
+                      : requestMap.get(sub.id)
                   const phone = sub.adminContact?.phone
                   const digits = waDigits(phone)
                   const msg = buildWaMessage(sub)
                   const canWa =
                     digits &&
-                    (sub.status === 'pending' || sub.status === 'active' || sub.status === 'expired')
+                    (sub.status === 'pending' ||
+                      sub.status === 'active' ||
+                      sub.status === 'rejected' ||
+                      sub.status === 'expired' ||
+                      sub.status === 'cancelled')
 
                   return (
                     <tr
@@ -566,6 +599,7 @@ export function SubscriptionsTable() {
                           onReject={() => openReject(sub)}
                           onChange={() => openChange(sub)}
                           onRenew={() => openRenew(sub)}
+                          onCancel={() => openCancel(sub)}
                         />
                       </td>
                     </tr>
@@ -610,7 +644,19 @@ export function SubscriptionsTable() {
       {modal === 'approve' && activeSub && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
           <div className={modalPanel}>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Aprobar solicitud</h3>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+              {activeSub.status === 'rejected' ? 'Aprobar suscripción rechazada' : 'Aprobar solicitud'}
+            </h3>
+            {activeSub.status === 'rejected' && (
+              <div
+                role="alert"
+                className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-900 dark:text-amber-100/95 leading-relaxed"
+              >
+                <span className="font-semibold">¿Está seguro?</span> Va a aprobar una suscripción que consta como{' '}
+                <strong>rechazada</strong>. El estado pasará a aprobado/activo según el servidor. Revise referencia de
+                pago y notas antes de confirmar.
+              </div>
+            )}
             <input
               placeholder="Referencia de pago (opcional)"
               value={paymentRef}
@@ -636,10 +682,10 @@ export function SubscriptionsTable() {
               </button>
               <button
                 type="button"
-                disabled={busy || !requestMap.get(activeSub.id)}
-                title={!requestMap.get(activeSub.id) ? 'Solicitud no encontrada' : undefined}
+                disabled={busy || !resolveRequestIdForApprove(activeSub)}
+                title={!resolveRequestIdForApprove(activeSub) ? 'Solicitud no encontrada' : undefined}
                 onClick={() => {
-                  const rid = requestMap.get(activeSub.id)
+                  const rid = resolveRequestIdForApprove(activeSub)
                   if (!rid) return
                   runAction(
                     () =>
@@ -652,7 +698,7 @@ export function SubscriptionsTable() {
                 }}
                 className="px-3 py-1.5 text-xs rounded-lg bg-emerald-500/20 text-emerald-400 disabled:opacity-40"
               >
-                {busy ? '…' : 'Confirmar'}
+                {busy ? '…' : activeSub.status === 'rejected' ? 'Sí, aprobar' : 'Confirmar'}
               </button>
             </div>
           </div>
@@ -777,9 +823,34 @@ export function SubscriptionsTable() {
       {modal === 'renew' && activeSub && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
           <div className={modalPanel}>
-            <p className="text-sm text-slate-800 dark:text-white/90">
-              ¿Renovar suscripción de {activeSub.organization.name}?
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Renovar suscripción</h3>
+            <p className="text-xs text-slate-600 dark:text-white/50">
+              {activeSub.organization.name} · vencidas o canceladas
             </p>
+            <label className="block text-[11px] text-slate-500 dark:text-white/50">Ciclo de facturación</label>
+            <select
+              value={cyclePick}
+              onChange={(e) => setCyclePick(e.target.value as 'monthly' | 'annual')}
+              className={field}
+              disabled={busy}
+            >
+              <option value="monthly">Mensual</option>
+              <option value="annual">Anual</option>
+            </select>
+            <input
+              placeholder="Referencia de pago (opcional)"
+              value={paymentRef}
+              onChange={(e) => setPaymentRef(e.target.value)}
+              className={field}
+              disabled={busy}
+            />
+            <textarea
+              placeholder="Notas (opcional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={`${field} min-h-[50px]`}
+              disabled={busy}
+            />
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
@@ -794,13 +865,63 @@ export function SubscriptionsTable() {
                 disabled={busy}
                 onClick={() =>
                   runAction(
-                    () => apiClient.renewSubscriptionEmpty(activeSub.id),
+                    () =>
+                      apiClient.renewSubscription(activeSub.id, {
+                        billingCycle: cyclePick,
+                        paymentReference: paymentRef.trim(),
+                        notes: notes.trim(),
+                      }),
                     `Suscripción de ${activeSub.organization.name} renovada`
                   )
                 }
                 className="px-3 py-1.5 text-xs rounded-lg bg-amber-500/20 text-amber-400"
               >
                 {busy ? '…' : 'Renovar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal === 'cancel' && activeSub && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog">
+          <div className={modalPanel}>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Dar de baja</h3>
+            <p className="text-xs text-slate-600 dark:text-white/50">
+              Se cancelará la suscripción activa de {activeSub.organization.name}. Esta acción la marca como
+              cancelada en el sistema.
+            </p>
+            <textarea
+              placeholder="Motivo o notas (opcional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={`${field} min-h-[72px]`}
+              disabled={busy}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={closeModal}
+                className="px-3 py-1.5 text-xs text-slate-500 dark:text-white/50"
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  runAction(
+                    () =>
+                      apiClient.cancelSubscription(activeSub.id, {
+                        notes: notes.trim() || undefined,
+                      }),
+                    `Suscripción de ${activeSub.organization.name} cancelada`
+                  )
+                }
+                className="px-3 py-1.5 text-xs rounded-lg bg-red-500/20 text-red-400"
+              >
+                {busy ? '…' : 'Confirmar baja'}
               </button>
             </div>
           </div>
@@ -817,6 +938,7 @@ function ActionsCell({
   onReject,
   onChange,
   onRenew,
+  onCancel,
 }: {
   sub: ApiSubscription
   requestId: number | undefined
@@ -824,6 +946,7 @@ function ActionsCell({
   onReject: () => void
   onChange: () => void
   onRenew: () => void
+  onCancel: () => void
 }) {
   const st = sub.status
   if (st === 'pending') {
@@ -851,6 +974,20 @@ function ActionsCell({
       </div>
     )
   }
+  if (st === 'rejected') {
+    const missing = !requestId
+    return (
+      <button
+        type="button"
+        onClick={onApprove}
+        disabled={missing}
+        title={missing ? 'Solicitud no encontrada' : 'Aprobar y activar suscripción'}
+        className="px-2 py-1 rounded-lg text-[11px] font-medium bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-40"
+      >
+        Aprobar
+      </button>
+    )
+  }
   if (st === 'active') {
     return (
       <div className="flex flex-wrap gap-1 justify-end">
@@ -863,16 +1000,15 @@ function ActionsCell({
         </button>
         <button
           type="button"
-          disabled
-          title="Próximamente"
-          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-slate-500/10 text-slate-400 cursor-not-allowed opacity-50"
+          onClick={onCancel}
+          className="px-2 py-1 rounded-lg text-[11px] font-medium bg-slate-500/15 text-slate-400 hover:bg-slate-500/25"
         >
           Dar de baja
         </button>
       </div>
     )
   }
-  if (st === 'expired') {
+  if (st === 'expired' || st === 'cancelled') {
     return (
       <button
         type="button"
