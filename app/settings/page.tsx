@@ -152,14 +152,8 @@ export default function SettingsPage() {
     }
   }
 
-  const handleDeleteUser = async (userId: number) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) return
-    try {
-      await apiClient.deleteUser(userId)
-      setUsers((prev) => prev.filter((u) => u.id !== userId))
-    } catch (e) {
-      alert(errorMessage(e, 'Error al eliminar el usuario'))
-    }
+  const handleDeleteUser = (_userId: number) => {
+    // Pendiente: definir acción (p. ej. revocar acceso al panel sin DELETE /user).
   }
 
   const handleConfigSubmit = (e: React.FormEvent) => {
