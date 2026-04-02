@@ -42,7 +42,7 @@ export interface ApiSubscription {
   adminContact: ApiSubscriptionAdminContact | null
 }
 
-export type ApiSubscriptionRequestType = 'new' | 'plan_change' | 'renewal'
+export type ApiSubscriptionRequestType = 'new' | 'plan_change' | 'renewal' | 'cancellation'
 
 export type ApiSubscriptionRequestStatus = 'pending' | 'approved' | 'rejected'
 

@@ -24,6 +24,9 @@ import type {
   Subscription,
   SubscriptionPlan,
 } from './types'
+import type { ApiUserDetail, OrganizationEntity } from './organizationApiTypes'
+import { parseOrganization } from './parseOrganization'
+import { parseApiUser } from './parseApiUser'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://unequivocally-shrinelike-zara.ngrok-free.dev/api'
 
@@ -795,6 +798,59 @@ export class ApiClient {
       if (r.status === 'fulfilled') out.set(id, r.value)
     })
     return out
+  }
+
+  /** GET /organization con locations tipadas (wrapper { result, pagination }). */
+  async getOrganizationList(params: {
+    page?: number
+    perPage?: number
+  }): Promise<{ items: OrganizationEntity[]; pagination: SubscriptionPagination | null }> {
+    const query = this.buildQuery({
+      page: params.page ?? 1,
+      perPage: params.perPage ?? 10,
+    })
+    const raw = await this.request<unknown>(`/organization${query}`)
+    const { items: rawItems, pagination } = parseSubscriptionListResponse(raw)
+    return {
+      items: rawItems.map((x) => parseOrganization(x)),
+      pagination,
+    }
+  }
+
+  /** GET /user/{id} — detalle admin (email, etc.). */
+  async getUserById(userId: number): Promise<ApiUserDetail> {
+    const raw = await this.request<unknown>(`/user/${encodeURIComponent(String(userId))}`)
+    return parseApiUser(raw)
+  }
+
+  /**
+   * PUT — verificar o quitar verificación (superadmin).
+   * Cuerpo `{ isVerified }`; el id va en query (?organizationId=…).
+   */
+  async setOrganizationVerification(organizationId: number, isVerified: boolean): Promise<void> {
+    const query = this.buildQuery({ organizationId })
+    await this.request(`/organization/superadmin/verification${query}`, {
+      method: 'PUT',
+      body: JSON.stringify({ isVerified }),
+    })
+  }
+
+  /** GET /subscription/requests — todas las páginas para filtros en cliente. */
+  async fetchAllSubscriptionRequests(): Promise<SubscriptionRequestRow[]> {
+    const pageSize = 200
+    const first = await this.getSubscriptionRequests({ page: 1, perPage: pageSize })
+    let items = [...first.items]
+    const total = first.total
+    if (typeof total === 'number' && total > items.length) {
+      const extraPages = Math.ceil((total - items.length) / pageSize)
+      const rest = await Promise.all(
+        Array.from({ length: extraPages }, (_, i) =>
+          this.getSubscriptionRequests({ page: i + 2, perPage: pageSize })
+        )
+      )
+      for (const r of rest) items.push(...r.items)
+    }
+    return items
   }
 }
 
