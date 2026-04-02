@@ -1,6 +1,23 @@
 import type { OrganizationEntity, OrganizationLocation } from './organizationApiTypes'
 import { unwrapApiEntity } from './mappers'
 
+/** Evita unwrapApiEntity cuando la org ya viene plana: si hay `data`/`Data` ajeno, no debemos sustituir todo el objeto. */
+function organizationPayload(raw: unknown): Record<string, unknown> {
+  const top = asRecord(raw)
+  if (!top) return {}
+  const hasId = ('id' in top && top.id != null) || ('Id' in top && top.Id != null)
+  if (hasId) return top
+  if (Array.isArray(top.locations) || Array.isArray(top.Locations)) return top
+  const inner = asRecord(unwrapApiEntity(raw))
+  return inner ?? top
+}
+
+function normalizeLocationList(locRaw: unknown): unknown[] {
+  if (Array.isArray(locRaw)) return locRaw
+  if (locRaw && typeof locRaw === 'object' && !Array.isArray(locRaw)) return [locRaw]
+  return []
+}
+
 function asRecord(v: unknown): Record<string, unknown> | null {
   if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>
   return null
@@ -90,11 +107,11 @@ function parseLocation(raw: unknown): OrganizationLocation {
 }
 
 export function parseOrganization(raw: unknown): OrganizationEntity {
-  const o = asRecord(unwrapApiEntity(raw)) ?? asRecord(raw) ?? {}
+  const o = organizationPayload(raw)
   const locRaw = o.locations ?? o.Locations
-  const locations: OrganizationLocation[] = Array.isArray(locRaw)
-    ? locRaw.map((x) => parseLocation(x))
-    : []
+  const locations: OrganizationLocation[] = normalizeLocationList(locRaw).map((x) =>
+    parseLocation(x)
+  )
 
   return {
     id: pickNum(o, ['id', 'Id'], 0),

@@ -36,7 +36,7 @@ function parseAdminContact(raw: unknown): ApiSubscriptionAdminContact | null {
   const o = asRecord(raw)
   if (!o) return null
   return {
-    userId: pickNum(o, ['userId', 'UserId'], 0),
+    userId: pickNum(o, ['userId', 'UserId', 'adminUserId', 'AdminUserId'], 0),
     fullName: pickStr(o, ['fullName', 'FullName', 'name', 'Name'], '—'),
     phone: (() => {
       const p = o.phone ?? o.Phone

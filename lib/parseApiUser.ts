@@ -1,6 +1,18 @@
 import type { ApiUserDetail } from './organizationApiTypes'
 import { unwrapApiEntity } from './mappers'
 
+/** Igual que organizaciones: no sustituir por `data`/`Data` si el usuario ya viene plano con id. */
+function userPayload(raw: unknown): Record<string, unknown> {
+  const top = asRecord(raw)
+  if (!top) return {}
+  const hasId = ('id' in top && top.id != null) || ('Id' in top && top.Id != null)
+  if (hasId) return top
+  if (top.email !== undefined || top.Email !== undefined) return top
+  if (top.fullName !== undefined || top.FullName !== undefined) return top
+  const inner = asRecord(unwrapApiEntity(raw))
+  return inner ?? top
+}
+
 function asRecord(v: unknown): Record<string, unknown> | null {
   if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>
   return null
@@ -33,7 +45,7 @@ function phoneNull(v: unknown): string | null {
 }
 
 export function parseApiUser(raw: unknown): ApiUserDetail {
-  const o = asRecord(unwrapApiEntity(raw)) ?? asRecord(raw) ?? {}
+  const o = userPayload(raw)
   return {
     id: pickNum(o, ['id', 'Id'], 0),
     fullName: pickStr(o, ['fullName', 'FullName'], '—'),

@@ -47,6 +47,19 @@ function formatDateLong(iso: string | null): string {
   }
 }
 
+/** Si la suscripción prioritaria no trae adminContact, reutiliza el de otra suscripción de la misma org. */
+function withAdminFromSiblings(primary: ApiSubscription, subs: ApiSubscription[]): ApiSubscription {
+  const uid = primary.adminContact?.userId ?? 0
+  if (uid > 0) return primary
+  for (const s of subs) {
+    const a = s.adminContact
+    if (a && (a.userId ?? 0) > 0) {
+      return { ...primary, adminContact: a }
+    }
+  }
+  return primary
+}
+
 function buildSubscriptionMap(items: ApiSubscription[]): Map<number, ApiSubscription> {
   const byOrg = new Map<number, ApiSubscription[]>()
   for (const s of items) {
@@ -59,7 +72,8 @@ function buildSubscriptionMap(items: ApiSubscription[]): Map<number, ApiSubscrip
   const map = new Map<number, ApiSubscription>()
   byOrg.forEach((subs, oid) => {
     subs.sort((a, b) => priority(b) - priority(a) || b.id - a.id)
-    map.set(oid, subs[0])
+    const primary = subs[0]
+    map.set(oid, withAdminFromSiblings(primary, subs))
   })
   return map
 }
@@ -258,6 +272,7 @@ export function OrganizationsTable() {
   const [detailOrgId, setDetailOrgId] = useState<number | null>(null)
   const [adminUser, setAdminUser] = useState<ApiUserDetail | null>(null)
   const [adminLoading, setAdminLoading] = useState(false)
+  const [adminError, setAdminError] = useState<string | null>(null)
 
   const [confirmModal, setConfirmModal] = useState<
     { kind: 'verify' | 'unverify'; orgId: number } | null
@@ -322,25 +337,39 @@ export function OrganizationsTable() {
     if (detailOrgId == null) {
       setAdminUser(null)
       setAdminLoading(false)
+      setAdminError(null)
       return
     }
     const sub = subscriptionMap.get(detailOrgId)
-    const uid = sub?.adminContact?.userId
-    if (!uid) {
+    const uid = sub?.adminContact?.userId ?? 0
+    if (uid <= 0) {
       setAdminUser(null)
       setAdminLoading(false)
+      setAdminError(null)
       return
     }
     let cancelled = false
     setAdminLoading(true)
     setAdminUser(null)
+    setAdminError(null)
     apiClient
       .getUserById(uid)
       .then((u) => {
-        if (!cancelled) setAdminUser(u)
+        if (!cancelled) {
+          const bad = u.id === 0 && !u.email?.trim() && u.fullName === '—'
+          if (bad) {
+            setAdminUser(null)
+            setAdminError('Respuesta de usuario vacía o no reconocida.')
+          } else {
+            setAdminUser(u)
+          }
+        }
       })
-      .catch(() => {
-        if (!cancelled) setAdminUser(null)
+      .catch((e) => {
+        if (!cancelled) {
+          setAdminUser(null)
+          setAdminError(errorMessage(e, 'No se pudo cargar el usuario'))
+        }
       })
       .finally(() => {
         if (!cancelled) setAdminLoading(false)
@@ -763,7 +792,9 @@ export function OrganizationsTable() {
                     ) : adminLoading ? (
                       <p className="text-slate-500 dark:text-white/40">Cargando datos del admin…</p>
                     ) : !adminUser ? (
-                      <p className="text-slate-600 dark:text-white/50">No se pudieron cargar los datos del usuario.</p>
+                      <p className="text-sm text-amber-600 dark:text-amber-400/90">
+                        {adminError ?? 'No se pudieron cargar los datos del usuario.'}
+                      </p>
                     ) : (
                       <dl className="space-y-2 text-slate-800 dark:text-white/90">
                         <div>
@@ -870,11 +901,6 @@ export function OrganizationsTable() {
                             className="rounded-lg border border-slate-200 dark:border-white/[0.08] p-3 space-y-2"
                           >
                             <div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white">
-                              {loc.businessCategory?.icon && (
-                                <span className="text-lg" aria-hidden>
-                                  {loc.businessCategory.icon}
-                                </span>
-                              )}
                               <span>{loc.name}</span>
                               {loc.businessCategory?.name && (
                                 <span className="text-xs font-normal text-slate-500 dark:text-white/40">
