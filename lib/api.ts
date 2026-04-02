@@ -837,15 +837,11 @@ export class ApiClient {
     return parseApiUser(raw)
   }
 
-  /**
-   * PUT — verificar o quitar verificación (superadmin).
-   * Cuerpo `{ isVerified }`; el id va en query (?organizationId=…).
-   */
+  /** PUT /organization/verification — cuerpo { organizationId, isVerified }. */
   async setOrganizationVerification(organizationId: number, isVerified: boolean): Promise<void> {
-    const query = this.buildQuery({ organizationId })
-    await this.request(`/organization/superadmin/verification${query}`, {
+    await this.request('/organization/verification', {
       method: 'PUT',
-      body: JSON.stringify({ isVerified }),
+      body: JSON.stringify({ organizationId, isVerified }),
     })
   }
 
