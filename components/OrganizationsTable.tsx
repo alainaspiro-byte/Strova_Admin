@@ -806,10 +806,6 @@ export function OrganizationsTable() {
                           <dd>{adminUser.email || '—'}</dd>
                         </div>
                         <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Teléfono</dt>
-                          <dd>{adminUser.phone ?? '—'}</dd>
-                        </div>
-                        <div>
                           <dt className="text-slate-500 dark:text-white/40 text-xs">Estado</dt>
                           <dd>
                             {adminUser.status === 0 ? (
@@ -821,24 +817,6 @@ export function OrganizationsTable() {
                             )}
                           </dd>
                         </div>
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Registro</dt>
-                          <dd>{formatDateLong(adminUser.createdAt)}</dd>
-                        </div>
-                        {adminUser.phone && (
-                          <div>
-                            <a
-                              href={`https://wa.me/${waDigits(adminUser.phone)}?text=${encodeURIComponent(
-                                `Hola ${adminUser.fullName}, te contactamos desde el equipo de Strova.`
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400"
-                            >
-                              WhatsApp
-                            </a>
-                          </div>
-                        )}
                       </dl>
                     )}
                   </section>
