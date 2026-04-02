@@ -47,6 +47,33 @@ function formatDateLong(iso: string | null): string {
   }
 }
 
+function orgInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  if (parts.length === 1 && parts[0].length >= 2) {
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+  if (parts.length === 1 && parts[0].length === 1) {
+    return `${parts[0][0].toUpperCase()}•`
+  }
+  return '—'
+}
+
+/** Porcentaje del periodo startDate→endDate ya transcurrido (0–100). */
+function subscriptionElapsedPercent(startDate: string, endDate: string): number {
+  const start = new Date(startDate).getTime()
+  const end = new Date(endDate).getTime()
+  const now = Date.now()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0
+  const totalMs = end - start
+  const elapsedMs = now - start
+  if (elapsedMs <= 0) return 0
+  if (elapsedMs >= totalMs) return 100
+  return Math.round((elapsedMs / totalMs) * 100)
+}
+
 /** Si la suscripción prioritaria no trae adminContact, reutiliza el de otra suscripción de la misma org. */
 function withAdminFromSiblings(primary: ApiSubscription, subs: ApiSubscription[]): ApiSubscription {
   const uid = primary.adminContact?.userId ?? 0
@@ -533,13 +560,12 @@ export function OrganizationsTable() {
 
       <div className={shell}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px]">
+          <table className="w-full min-w-[840px]">
             <thead className="bg-slate-100 dark:bg-[#111827] border-b border-slate-200 dark:border-white/[0.06]">
               <tr>
                 {[
                   'Organización',
                   'Admin',
-                  'Teléfono',
                   'Plan',
                   'Estado',
                   'Ubicaciones',
@@ -559,7 +585,7 @@ export function OrganizationsTable() {
               {loading ? (
                 Array.from({ length: PER_PAGE }).map((_, i) => (
                   <tr key={i}>
-                    <td colSpan={8} className="px-4 py-3">
+                    <td colSpan={7} className="px-4 py-3">
                       <div className="h-4 rounded bg-slate-200/80 dark:bg-white/10 animate-pulse" />
                     </td>
                   </tr>
@@ -567,7 +593,7 @@ export function OrganizationsTable() {
               ) : pageSlice.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="px-4 py-12 text-center text-slate-500 dark:text-white/40 text-sm"
                   >
                     No hay organizaciones que coincidan con los filtros
@@ -577,11 +603,6 @@ export function OrganizationsTable() {
                 pageSlice.map((org) => {
                   const sub = subscriptionMap.get(org.id) ?? null
                   const admin = sub?.adminContact
-                  const phone = admin?.phone ?? null
-                  const digits = waDigits(phone)
-                  const waMsg = admin?.fullName
-                    ? `Hola ${admin.fullName}, te contactamos desde el equipo de Strova.`
-                    : 'Hola, te contactamos desde el equipo de Strova.'
 
                   return (
                     <tr key={org.id} className="hover:bg-slate-50 dark:hover:bg-[#111827]">
@@ -591,20 +612,6 @@ export function OrganizationsTable() {
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700 dark:text-white/80">
                         {admin?.fullName ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {!phone ? (
-                          '—'
-                        ) : (
-                          <a
-                            href={`https://wa.me/${digits}?text=${encodeURIComponent(waMsg)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
-                          >
-                            {phone}
-                          </a>
-                        )}
                       </td>
                       <td className="px-4 py-3">
                         <PlanNameBadge displayName={sub?.plan.displayName ?? null} />
@@ -714,159 +721,168 @@ export function OrganizationsTable() {
       )}
 
       {detailOrgId != null && (
-        <div className="fixed inset-0 z-[90]">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/50"
-            aria-label="Cerrar panel"
-            onClick={() => setDetailOrgId(null)}
-          />
-          <aside className="absolute inset-y-0 right-0 w-[480px] max-w-full bg-white dark:bg-[#1a2332] border-l border-slate-200 dark:border-white/[0.08] shadow-xl flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/[0.06]">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Detalle</h2>
-              <button
-                type="button"
-                onClick={() => setDetailOrgId(null)}
-                className="text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white p-1"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 text-sm">
-              {!detailOrg ? (
-                <p className="text-slate-500 dark:text-white/40">Organización no encontrada.</p>
-              ) : (
-                <>
-                  <section>
-                    <h3 className="text-slate-500 dark:text-white/50 text-xs uppercase tracking-wider mb-2">
-                      Información de la organización
-                    </h3>
-                    <dl className="space-y-2 text-slate-800 dark:text-white/90">
-                      <div>
-                        <dt className="text-slate-500 dark:text-white/40 text-xs">Nombre</dt>
-                        <dd className="font-medium">{detailOrg.name}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500 dark:text-white/40 text-xs">Código</dt>
-                        <dd className="font-mono text-xs">{detailOrg.code}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500 dark:text-white/40 text-xs">Descripción</dt>
-                        <dd>{detailOrg.description ?? 'Sin descripción'}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500 dark:text-white/40 text-xs">Alta</dt>
-                        <dd>{formatDateLong(detailOrg.createdAt)}</dd>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        <OrgVerificationBadge verified={detailOrg.isVerified} />
-                        {!detailOrg.isVerified ? (
-                          <button
-                            type="button"
-                            disabled={verifyBusy}
-                            onClick={() => setConfirmModal({ kind: 'verify', orgId: detailOrg.id })}
-                            className="text-xs px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                          >
-                            Verificar
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={verifyBusy}
-                            onClick={() => setConfirmModal({ kind: 'unverify', orgId: detailOrg.id })}
-                            className="text-xs px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/10"
-                          >
-                            Quitar verificación
-                          </button>
-                        )}
-                      </div>
-                    </dl>
-                  </section>
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="org-detail-title"
+          onClick={() => setDetailOrgId(null)}
+        >
+          <div
+            className="flex w-full max-w-[520px] max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-white/[0.08] dark:bg-[#1a2332] dark:shadow-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {!detailOrg ? (
+              <div className="p-6 text-sm text-slate-500 dark:text-white/40">Organización no encontrada.</div>
+            ) : (
+              <>
+                <header className="flex items-start gap-3 border-b border-slate-200 px-4 pb-3 pt-4 dark:border-white/[0.06]">
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-700 dark:bg-white/10 dark:text-white/85"
+                    aria-hidden
+                  >
+                    {orgInitials(detailOrg.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 id="org-detail-title" className="text-base font-bold text-slate-900 dark:text-white">
+                        {detailOrg.name}
+                      </h2>
+                      <OrgVerificationBadge verified={detailOrg.isVerified} />
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-white/40">
+                      <span className="font-mono">{detailOrg.code}</span>
+                      <span className="text-slate-400 dark:text-white/25"> · </span>
+                      {detailOrg.locations.length === 0
+                        ? 'Sin ubicaciones'
+                        : detailOrg.locations.length === 1
+                          ? '1 ubicación'
+                          : `${detailOrg.locations.length} ubicaciones`}
+                    </p>
+                    <p className="mt-1.5 text-xs leading-snug text-slate-600 dark:text-white/50">
+                      {detailOrg.description ?? 'Sin descripción'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-white/40">
+                      Alta: {formatDateLong(detailOrg.createdAt)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDetailOrgId(null)}
+                    className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/[0.06] dark:hover:text-white"
+                    aria-label="Cerrar"
+                  >
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </header>
 
-                  <section>
-                    <h3 className="text-slate-500 dark:text-white/50 text-xs uppercase tracking-wider mb-2">Admin</h3>
-                    {!detailSub?.adminContact ? (
-                      <p className="text-slate-600 dark:text-white/50">Sin admin registrado</p>
-                    ) : adminLoading ? (
-                      <p className="text-slate-500 dark:text-white/40">Cargando datos del admin…</p>
-                    ) : !adminUser ? (
-                      <p className="text-sm text-amber-600 dark:text-amber-400/90">
-                        {adminError ?? 'No se pudieron cargar los datos del usuario.'}
-                      </p>
-                    ) : (
-                      <dl className="space-y-2 text-slate-800 dark:text-white/90">
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Nombre</dt>
-                          <dd>{adminUser.fullName}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Email</dt>
-                          <dd>{adminUser.email || '—'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Estado</dt>
-                          <dd>
-                            {adminUser.status === 0 ? (
-                              <span className="inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400">
-                                Activo
-                              </span>
-                            ) : (
-                              <span className="text-slate-600 dark:text-white/50">{adminUser.status}</span>
-                            )}
-                          </dd>
-                        </div>
-                      </dl>
-                    )}
-                  </section>
-
-                  <section>
-                    <h3 className="text-slate-500 dark:text-white/50 text-xs uppercase tracking-wider mb-2">
-                      Suscripción actual
-                    </h3>
-                    {!detailSub ? (
-                      <p className="text-slate-600 dark:text-white/50">
-                        Esta organización no tiene suscripción activa
-                      </p>
-                    ) : (
-                      <dl className="space-y-2 text-slate-800 dark:text-white/90">
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Plan</dt>
-                          <dd>
-                            <PlanNameBadge displayName={detailSub.plan.displayName} />
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Ciclo</dt>
-                          <dd>{detailSub.billingCycle === 'annual' ? 'Anual' : 'Mensual'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Estado</dt>
-                          <dd>
-                            <SubscriptionStatusBadge sub={detailSub} />
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Inicio</dt>
-                          <dd>{formatDateShort(detailSub.startDate)}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-slate-500 dark:text-white/40 text-xs">Vencimiento</dt>
-                          <dd>{formatDateShort(detailSub.endDate)}</dd>
-                        </div>
-                        {detailSub.status === 'active' && (
+                <div className="min-h-0 flex-1 overflow-y-auto space-y-4 p-4 text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <section className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-[#111827]">
+                      <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-white/50">
+                        Admin
+                      </h3>
+                      {!detailSub?.adminContact ? (
+                        <p className="text-slate-600 dark:text-white/50">Sin admin registrado</p>
+                      ) : adminLoading ? (
+                        <p className="text-slate-500 dark:text-white/40">Cargando datos del admin…</p>
+                      ) : !adminUser ? (
+                        <p className="text-sm text-amber-600 dark:text-amber-400/90">
+                          {adminError ?? 'No se pudieron cargar los datos del usuario.'}
+                        </p>
+                      ) : (
+                        <dl className="space-y-2 text-slate-800 dark:text-white/90">
                           <div>
-                            <dt className="text-slate-500 dark:text-white/40 text-xs">Días restantes</dt>
-                            <dd>{detailSub.daysRemaining}</dd>
+                            <dt className="text-xs text-slate-500 dark:text-white/40">Nombre</dt>
+                            <dd>{adminUser.fullName}</dd>
                           </div>
-                        )}
-                      </dl>
-                    )}
-                  </section>
+                          <div>
+                            <dt className="text-xs text-slate-500 dark:text-white/40">Email</dt>
+                            <dd>{adminUser.email || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs text-slate-500 dark:text-white/40">Estado</dt>
+                            <dd>
+                              {adminUser.status === 0 ? (
+                                <span className="inline-flex rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-400">
+                                  Activo
+                                </span>
+                              ) : (
+                                <span className="text-slate-600 dark:text-white/50">{adminUser.status}</span>
+                              )}
+                            </dd>
+                          </div>
+                        </dl>
+                      )}
+                    </section>
 
-                  <section>
-                    <h3 className="text-slate-500 dark:text-white/50 text-xs uppercase tracking-wider mb-2">
+                    <section className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-[#111827]">
+                      <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-white/50">
+                        Suscripción actual
+                      </h3>
+                      {!detailSub ? (
+                        <p className="text-slate-600 dark:text-white/50">
+                          Esta organización no tiene suscripción activa
+                        </p>
+                      ) : (
+                        <>
+                          <dl className="space-y-2 text-slate-800 dark:text-white/90">
+                            <div>
+                              <dt className="text-xs text-slate-500 dark:text-white/40">Plan</dt>
+                              <dd>
+                                <PlanNameBadge displayName={detailSub.plan.displayName} />
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs text-slate-500 dark:text-white/40">Ciclo</dt>
+                              <dd>{detailSub.billingCycle === 'annual' ? 'Anual' : 'Mensual'}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs text-slate-500 dark:text-white/40">Estado</dt>
+                              <dd>
+                                <SubscriptionStatusBadge sub={detailSub} />
+                              </dd>
+                            </div>
+                            {detailSub.status !== 'active' && (
+                              <>
+                                <div>
+                                  <dt className="text-xs text-slate-500 dark:text-white/40">Inicio</dt>
+                                  <dd>{formatDateShort(detailSub.startDate)}</dd>
+                                </div>
+                                <div>
+                                  <dt className="text-xs text-slate-500 dark:text-white/40">Vencimiento</dt>
+                                  <dd>{formatDateShort(detailSub.endDate)}</dd>
+                                </div>
+                              </>
+                            )}
+                          </dl>
+                          {detailSub.status === 'active' && detailSub.startDate && detailSub.endDate && (
+                            <div className="mt-3">
+                              <div className="h-1.5 min-h-[6px] w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                                <div
+                                  className="h-full min-h-[6px] rounded-full bg-emerald-500 dark:bg-emerald-400"
+                                  style={{
+                                    width: `${subscriptionElapsedPercent(detailSub.startDate, detailSub.endDate)}%`,
+                                  }}
+                                />
+                              </div>
+                              <div className="mt-1.5 flex items-start justify-between gap-2 text-[10px] leading-tight text-slate-500 dark:text-white/40">
+                                <span>{formatDateShort(detailSub.startDate)}</span>
+                                <span className="shrink-0 text-right">
+                                  {detailSub.daysRemaining} días restantes
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </section>
+                  </div>
+
+                  <section className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-[#111827]">
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-white/50">
                       Ubicaciones
                     </h3>
                     {detailOrg.locations.length === 0 ? (
@@ -932,8 +948,8 @@ export function OrganizationsTable() {
                     )}
                   </section>
 
-                  <section>
-                    <h3 className="text-slate-500 dark:text-white/50 text-xs uppercase tracking-wider mb-2">
+                  <section className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-[#111827]">
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-white/50">
                       Historial de solicitudes
                     </h3>
                     {historyForOrg(detailOrg.id).length === 0 ? (
@@ -967,10 +983,49 @@ export function OrganizationsTable() {
                       </ul>
                     )}
                   </section>
-                </>
-              )}
-            </div>
-          </aside>
+                </div>
+
+                <footer className="flex flex-wrap justify-center gap-2 border-t border-slate-200 px-4 py-3 dark:border-white/[0.06]">
+                  {detailSub?.adminContact?.phone && waDigits(detailSub.adminContact.phone) ? (
+                    <a
+                      href={`https://wa.me/${waDigits(detailSub.adminContact.phone)}?text=${encodeURIComponent(
+                        detailSub.adminContact.fullName
+                          ? `Hola ${detailSub.adminContact.fullName}, te contactamos desde el equipo de Strova.`
+                          : 'Hola, te contactamos desde el equipo de Strova.'
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-600 hover:bg-emerald-500/25 dark:text-emerald-400"
+                    >
+                      <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                      WhatsApp
+                    </a>
+                  ) : null}
+                  {!detailOrg.isVerified ? (
+                    <button
+                      type="button"
+                      disabled={verifyBusy}
+                      onClick={() => setConfirmModal({ kind: 'verify', orgId: detailOrg.id })}
+                      className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50 dark:bg-blue-500"
+                    >
+                      Verificar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={verifyBusy}
+                      onClick={() => setConfirmModal({ kind: 'unverify', orgId: detailOrg.id })}
+                      className="rounded-lg border border-amber-500 bg-transparent px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-500/10 disabled:opacity-50 dark:border-amber-500/60 dark:text-amber-400"
+                    >
+                      Quitar verificación
+                    </button>
+                  )}
+                </footer>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
