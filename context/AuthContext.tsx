@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { apiClient, errorMessage } from '@/lib/api'
+import { ROLE_STORAGE_KEY, SUPERADMIN_ROLE_ID_VALUE } from '@/lib/authConstants'
+import { clearAuthStorage } from '@/lib/authSession'
 
 interface User {
   id: string
@@ -41,16 +43,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Verificar que el token sigue siendo válido en el backend
         await apiClient.verifyToken()
 
-        // Token válido → restaurar usuario desde localStorage
+        const roleId = localStorage.getItem(ROLE_STORAGE_KEY)
+        if (roleId !== SUPERADMIN_ROLE_ID_VALUE) {
+          clearAuthStorage()
+          setUser(null)
+          setIsLoading(false)
+          return
+        }
+
+        // Token válido y rol SuperAdmin → restaurar usuario desde localStorage
         const userData = localStorage.getItem('user')
         if (userData) {
           setUser(JSON.parse(userData))
         }
       } catch {
         // Token inválido o expirado → limpiar sesión silenciosamente
-        localStorage.removeItem('token')
-        localStorage.removeItem('refreshToken')
-        localStorage.removeItem('user')
+        clearAuthStorage()
         setUser(null)
       } finally {
         setIsLoading(false)
@@ -97,9 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout failed:', err)
     } finally {
       setUser(null)
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('user')
     }
   }
 

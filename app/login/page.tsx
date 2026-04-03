@@ -1,17 +1,28 @@
 'use client'
 
-import { FormEvent, useState, useEffect } from 'react'
+import { FormEvent, useState, useEffect, Suspense } from 'react'
+import type { CSSProperties } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { errorMessage } from '@/lib/api'
+import { clearAuthStorage, SUPERADMIN_DENIED_MESSAGE } from '@/lib/authSession'
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const { login, isAuthenticated, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (searchParams.get('forbidden') === '1') {
+      clearAuthStorage()
+      setError(SUPERADMIN_DENIED_MESSAGE)
+      window.history.replaceState(null, '', '/login')
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -131,7 +142,21 @@ export default function LoginPage() {
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={styles.root}>
+          <p style={{ color: '#94a3b8', fontSize: 14 }}>Cargando…</p>
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
+  )
+}
+
+const styles: Record<string, CSSProperties> = {
   root: {
     position: 'fixed',
     inset: 0,

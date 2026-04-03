@@ -15,9 +15,15 @@ import {
   normalizeOrganizationDetail,
   normalizeOrganizationRow,
   normalizePlan,
+  unwrapApiEntity,
   type BillingCycle,
   type SubscriptionRequestRow,
 } from './mappers'
+import {
+  clearAuthStorage,
+  setSuperAdminRoleMarker,
+  SUPERADMIN_DENIED_MESSAGE,
+} from './authSession'
 import type {
   OrganizationClientRow,
   OrganizationDetail,
@@ -38,6 +44,19 @@ function normalizeEndpoint(path: string): string {
   const p = path.trim()
   if (!p) return ''
   return p.startsWith('/') ? p : `/${p}`
+}
+
+function parseMyRolePayload(json: unknown): { id: number; name: string } | null {
+  const unwrapped = unwrapApiEntity(json)
+  if (typeof unwrapped !== 'object' || unwrapped === null) return null
+  const rec = unwrapped as Record<string, unknown>
+  const idRaw = rec.id ?? rec.Id
+  const nameRaw = rec.name ?? rec.Name
+  if (idRaw === undefined && nameRaw === undefined) return null
+  const id = Number(idRaw)
+  const name = String(nameRaw ?? '')
+  if (!Number.isFinite(id)) return null
+  return { id, name }
 }
 
 /** ngrok free: sin este header, el túnel puede responder HTML de aviso y el fetch falla con "Failed to fetch". Desactiva con NEXT_PUBLIC_NGROK_SKIP_BROWSER_WARNING=false si tu CORS no permite este header. */
@@ -279,10 +298,8 @@ export class ApiClient {
 
     if (!response.ok) {
       if (response.status === 401 && !skipAuth && typeof window !== 'undefined') {
-        localStorage.removeItem('token')
-        localStorage.removeItem('refreshToken')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
+        clearAuthStorage()
+        window.location.href = '/login?forbidden=1'
       }
       if (response.status === 403) {
         throw { message: 'Sin permisos', status: 403 } as ApiError
@@ -310,6 +327,61 @@ export class ApiClient {
     } catch {
       return {} as T
     }
+  }
+
+  /** GET /role/my-role con Bearer explícito (antes de persistir el token en login). */
+  private async fetchMyRoleWithBearer(accessToken: string): Promise<{ id: number; name: string }> {
+    const path = normalizeEndpoint('/role/my-role')
+    const url = `${this.baseUrl}${path}`
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    }
+    addNgrokHeadersIfNeeded(url, headers)
+
+    let res: Response
+    try {
+      res = await fetch(url, {
+        method: 'GET',
+        headers,
+      })
+    } catch (e) {
+      const isNetwork =
+        e instanceof TypeError &&
+        (String(e.message).includes('fetch') || String(e.message).includes('NetworkError'))
+      throw {
+        message: isNetwork
+          ? 'No se pudo conectar con la API. Revisa CORS y que el túnel esté activo.'
+          : errorMessage(e, 'Error de red'),
+        status: 0,
+      } as ApiError
+    }
+
+    const text = await res.text()
+    let json: unknown = {}
+    if (text) {
+      try {
+        json = JSON.parse(text) as unknown
+      } catch {
+        json = {}
+      }
+    }
+
+    if (!res.ok) {
+      const errRec =
+        typeof json === 'object' && json !== null ? (json as Record<string, unknown>) : {}
+      const baseMsg = (errRec.message as string) || `Error ${res.status}`
+      throw { message: baseMsg, status: res.status } as ApiError
+    }
+
+    const payload = parseMyRolePayload(json)
+    if (!payload) {
+      throw {
+        message: 'Respuesta de rol inválida.',
+        status: 0,
+      } as ApiError
+    }
+    return payload
   }
 
   async login(email: string, password: string) {
@@ -365,12 +437,7 @@ export class ApiClient {
       fromHeaders.accessToken ?? extractJwtFromLoginResponse(json)
 
     if (typeof window !== 'undefined') {
-      if (token) {
-        localStorage.setItem('token', token)
-        if (fromHeaders.refreshToken) {
-          localStorage.setItem('refreshToken', fromHeaders.refreshToken)
-        }
-      } else {
+      if (!token) {
         const preview =
           typeof json === 'object' && json !== null
             ? JSON.stringify(json).slice(0, 400)
@@ -380,6 +447,17 @@ export class ApiClient {
           status: 0,
         } as ApiError
       }
+
+      const role = await this.fetchMyRoleWithBearer(token)
+      if (role.id !== 1 || role.name !== 'SuperAdmin') {
+        throw { message: SUPERADMIN_DENIED_MESSAGE, status: 403 } as ApiError
+      }
+
+      localStorage.setItem('token', token)
+      if (fromHeaders.refreshToken) {
+        localStorage.setItem('refreshToken', fromHeaders.refreshToken)
+      }
+      setSuperAdminRoleMarker()
     }
 
     const user = normalizeLoginUserFromResponse(json)
@@ -388,8 +466,7 @@ export class ApiClient {
 
   async logout() {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
+      clearAuthStorage()
     }
   }
 
