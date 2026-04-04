@@ -707,8 +707,24 @@ export class ApiClient {
     })
   }
 
-  async getPlansCatalog(): Promise<SubscriptionPlan[]> {
-    const raw = await this.request<unknown>('/plan')
+  /**
+   * GET /plan — listado de planes.
+   * No se envía `isActive` en la query salvo configuración explícita.
+   * Para el panel admin, `includeInactive: true` añade `includeInactive=true` para que la API
+   * pueda devolver activos e inactivos (si el backend lo soporta).
+   * Override total de query: `NEXT_PUBLIC_PLAN_LIST_QUERY` (ej. `includeInactive=true` o `?all=true`).
+   */
+  async getPlansCatalog(options?: { includeInactive?: boolean }): Promise<SubscriptionPlan[]> {
+    const envRaw = typeof process.env.NEXT_PUBLIC_PLAN_LIST_QUERY === 'string'
+      ? process.env.NEXT_PUBLIC_PLAN_LIST_QUERY.trim()
+      : ''
+    let suffix = ''
+    if (envRaw) {
+      suffix = envRaw.startsWith('?') ? envRaw : `?${envRaw}`
+    } else if (options?.includeInactive === true) {
+      suffix = this.buildQuery({ includeInactive: 'true' })
+    }
+    const raw = await this.request<unknown>(`/plan${suffix}`)
     if (Array.isArray(raw)) return raw.map((x) => normalizePlan(x))
     const { items } = extractPaginated<unknown>(raw)
     return items.map((x) => normalizePlan(x))
