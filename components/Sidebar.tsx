@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
@@ -74,8 +75,44 @@ export function Sidebar() {
   const router = useRouter()
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(true)
+  /** Expansión temporal al pasar el cursor cuando la barra está colapsada */
+  const [hoverPeek, setHoverPeek] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
+  const hoverLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const wide = open || hoverPeek
+
+  useEffect(() => {
+    if (open) setHoverPeek(false)
+  }, [open])
+
+  useEffect(() => {
+    return () => {
+      if (hoverLeaveTimerRef.current) clearTimeout(hoverLeaveTimerRef.current)
+    }
+  }, [])
+
+  const clearHoverLeaveTimer = () => {
+    if (hoverLeaveTimerRef.current) {
+      clearTimeout(hoverLeaveTimerRef.current)
+      hoverLeaveTimerRef.current = null
+    }
+  }
+
+  const handleSidebarPointerEnter = () => {
+    clearHoverLeaveTimer()
+    if (!open) setHoverPeek(true)
+  }
+
+  const handleSidebarPointerLeave = () => {
+    if (open) return
+    clearHoverLeaveTimer()
+    hoverLeaveTimerRef.current = setTimeout(() => {
+      setHoverPeek(false)
+      hoverLeaveTimerRef.current = null
+    }, 220)
+  }
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -98,69 +135,92 @@ export function Sidebar() {
       {open && (
         <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setOpen(false)} />
       )}
-      <aside
+      <div
         ref={sidebarRef}
-        className={`fixed top-0 left-0 z-50 h-screen bg-[#1a1c2c] border-r border-white/[0.08] flex flex-col transition-all duration-200 ease-in-out`}
-        style={{ width: open ? 224 : 64 }}
+        onMouseEnter={handleSidebarPointerEnter}
+        onMouseLeave={handleSidebarPointerLeave}
+        className={`fixed top-0 left-0 h-screen overflow-visible transition-[width,box-shadow] duration-300 ease-out ${
+          !open && hoverPeek ? 'z-[60] shadow-[12px_0_40px_-8px_rgba(0,0,0,0.55)]' : 'z-50 shadow-none'
+        }`}
+        style={{ width: wide ? 224 : 64 }}
       >
-        <div className={`flex items-center justify-between px-3 py-3 border-b border-white/[0.06] transition-all duration-200 ${open ? 'pt-5 pb-4' : 'px-2 justify-center'}`}>
-          <div className={`flex items-center gap-2.5 flex-1 ${!open && 'hidden'}`}>
-            <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center text-white text-sm font-bold shrink-0">S</div>
-            <div className="min-w-0">
-              <div className="text-white text-sm font-semibold leading-none">Strova</div>
-              <div className="text-white/30 text-[10px] mt-0.5">Admin Panel</div>
+        {/* Captura el cursor en el borde izquierdo del viewport (evita entrar/salir en bucle al expandir) */}
+        <div
+          className="absolute top-0 bottom-0 w-3 -left-3 z-[70] pointer-events-auto"
+          aria-hidden
+        />
+        <aside className="relative z-[60] flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#1a1c2c] border-r border-white/[0.08]">
+        <div
+          className={`flex items-center border-b border-white/[0.06] transition-[padding] duration-300 ease-out ${
+            wide
+              ? 'gap-0 justify-start pl-2 pr-2 py-3 pt-5 pb-4'
+              : 'justify-center px-2 py-3'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? 'Colapsar menú lateral' : 'Fijar menú lateral abierto'}
+            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg bg-[#1a2332] border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-[#1e2a3a] transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+          {wide && (
+            <div className="flex flex-1 min-w-0 items-center justify-center gap-2.5 overflow-hidden">
+              <div className="min-w-0 text-center">
+                <div className="text-white text-sm font-semibold leading-none truncate">Strova</div>
+                <div className="text-white/30 text-[10px] mt-0.5 truncate">Admin Panel</div>
+              </div>
+              <Image
+                src="/strova-logo.png"
+                alt="Strova"
+                width={28}
+                height={28}
+                className="h-7 w-7 shrink-0 object-contain"
+                priority
+              />
             </div>
-          </div>
-          {open && (
-            <button
-              onClick={() => setOpen(false)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a2332] border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-[#1e2a3a] transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              </svg>
-            </button>
-          )}
-          {!open && (
-            <button
-              onClick={() => setOpen(true)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1a2332] border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-[#1e2a3a] transition-all"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              </svg>
-            </button>
           )}
         </div>
-        <nav className="flex-1 px-2 py-4 space-y-0.5">
-          <div className={`text-[9px] font-semibold text-white/20 uppercase tracking-widest px-2 mb-2 transition-all duration-200 ${!open && 'hidden'}`}>Gestion</div>
+        <nav className="flex-1 px-2 py-4 space-y-0.5 min-h-0 overflow-y-auto overflow-x-hidden">
+          {wide && (
+            <div className="text-[9px] font-semibold text-white/20 uppercase tracking-widest px-2 mb-2">
+              Gestion
+            </div>
+          )}
           {NAV.map((item) => {
             const active = pathname === item.href
             return (
-              <Link 
-                key={item.href} 
+              <Link
+                key={item.href}
                 href={item.href}
-                title={!open ? item.label : ''}
-                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all duration-150 ${open ? 'justify-start' : active ? 'justify-end' : 'justify-center'} ${active ? 'bg-blue-500/15 text-blue-400 font-medium' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'}`}
+                title={!wide ? item.label : ''}
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors duration-200 ease-out ${
+                  wide ? 'justify-start' : 'justify-center'
+                } ${active ? 'bg-blue-500/15 text-blue-400 font-medium' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'}`}
               >
-                <span className={active ? 'text-blue-400' : 'text-white/30'}>{item.icon}</span>
-                {open && (
+                <span className={`shrink-0 ${active ? 'text-blue-400' : 'text-white/30'}`}>{item.icon}</span>
+                {wide && (
                   <>
-                    {item.label}
-                    {active && <span className="ml-auto w-1 h-1 rounded-full bg-blue-400" />}
+                    <span className="truncate">{item.label}</span>
+                    {active && <span className="ml-auto w-1 h-1 shrink-0 rounded-full bg-blue-400" />}
                   </>
                 )}
               </Link>
             )
           })}
         </nav>
-        <div className={`px-2 py-3 border-t border-white/[0.06] space-y-1`}>
-          {/* Usuario */}
-          <div className={`flex items-center gap-2.5 px-1 transition-all duration-200 ${!open && 'justify-center'}`}>
+        <div className={`px-2 py-3 border-t border-white/[0.06] space-y-1 shrink-0`}>
+          <div
+            className={`flex items-center gap-2.5 px-1 transition-all duration-300 ease-out ${!wide ? 'justify-center' : ''}`}
+          >
             <div className="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xs font-semibold shrink-0">
               {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'A'}
             </div>
-            {open && (
+            {wide && (
               <div className="min-w-0 flex-1">
                 <div className="text-white/70 text-xs font-medium truncate">{user?.name || 'Admin'}</div>
                 <div className="text-white/25 text-[10px] truncate">{user?.email || 'Strova Team'}</div>
@@ -168,23 +228,27 @@ export function Sidebar() {
             )}
           </div>
 
-          {/* Botón logout */}
           <button
             type="button"
             onClick={handleLogout}
             disabled={loggingOut}
-            title={!open ? 'Cerrar sesión' : ''}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${!open ? 'justify-center' : 'justify-start'}`}
+            title={!wide ? 'Cerrar sesión' : ''}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${wide ? 'justify-start' : 'justify-center'}`}
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
+              />
             </svg>
-            {open && (loggingOut ? 'Cerrando…' : 'Cerrar sesión')}
+            {wide && (loggingOut ? 'Cerrando…' : 'Cerrar sesión')}
           </button>
         </div>
-      </aside>
-      <div className="hidden md:block shrink-0 transition-all duration-200" style={{ width: open ? 224 : 64 }} />
+        </aside>
+      </div>
+      <div className="hidden md:block shrink-0 transition-[width] duration-300 ease-out" style={{ width: open ? 224 : 64 }} />
     </>
   )
 }

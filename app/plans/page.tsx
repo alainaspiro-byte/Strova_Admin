@@ -307,10 +307,8 @@ export default function PlansPage() {
         <p className="text-slate-600 dark:text-white/60 text-sm">
           {plans.length} planes · {activeCount} activos
         </p>
-        <p className="text-slate-500 dark:text-white/40 text-xs mt-2">
-          Catálogo público <code className="text-slate-500 dark:text-white/40">GET /api/plan</code>; crear/editar/borrar requiere{' '}
-          <code className="text-slate-500 dark:text-white/40">plan.manage</code>. Detalle por id usa{' '}
-          <code className="text-slate-500 dark:text-white/40">plan.read</code>.
+        <p className="text-slate-500 dark:text-white/50 text-sm mt-2">
+          Precios y límites de los planes; activa o desactiva sin borrarlos.
         </p>
       </div>
 

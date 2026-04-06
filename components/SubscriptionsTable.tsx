@@ -10,7 +10,7 @@ const shell =
 const modalPanel =
   'bg-white dark:bg-[#1a2332] border border-slate-200 dark:border-white/[0.08] rounded-xl p-4 w-full max-w-md space-y-3 shadow-xl dark:shadow-none'
 const field =
-  'w-full px-3 py-2 text-xs bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white'
+  'w-full px-3 py-2 text-xs bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white dark:[color-scheme:dark]'
 
 type TabKey = 'all' | ApiSubscriptionStatus
 
@@ -453,7 +453,7 @@ export function SubscriptionsTable() {
               onChange={(e) =>
                 selectPlan(e.target.value === '' ? null : Number(e.target.value))
               }
-              className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:ring-1 focus:ring-blue-500/50 dark:bg-white/[0.04] dark:border-white/[0.08] dark:text-white/70"
+              className="px-3 py-1.5 text-xs rounded-lg outline-none focus:ring-1 focus:ring-blue-500/50 bg-slate-50 border border-blue-500/35 text-slate-800 dark:bg-[#1a2332] dark:border-blue-500/40 dark:text-white/90 dark:[color-scheme:dark]"
             >
               <option value="">Todos los planes</option>
               {plans.map((p) => (

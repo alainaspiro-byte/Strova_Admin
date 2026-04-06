@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState, useEffect, Suspense } from 'react'
+import Image from 'next/image'
 import type { CSSProperties } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -68,9 +69,13 @@ function LoginPageContent() {
           {/* Header */}
           <div style={styles.cardHeader}>
             <div style={styles.logo}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <Image
+                src="/strova-logo.png"
+                alt="Strova"
+                width={28}
+                height={28}
+                style={{ objectFit: 'contain' }}
+              />
               <span style={styles.logoText}>Strova Admin</span>
             </div>
             <h1 style={styles.title}>Bienvenido</h1>
