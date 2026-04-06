@@ -72,9 +72,9 @@ function LoginPageContent() {
               <Image
                 src="/strova-logo.png"
                 alt="Strova"
-                width={28}
-                height={28}
-                style={{ objectFit: 'contain' }}
+                width={48}
+                height={48}
+                style={{ objectFit: 'contain', width: 48, height: 48 }}
               />
               <span style={styles.logoText}>Strova Admin</span>
             </div>
@@ -218,11 +218,11 @@ const styles: Record<string, CSSProperties> = {
   logo: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
     background: 'rgba(59,130,246,0.1)',
     border: '1px solid rgba(59,130,246,0.2)',
     borderRadius: 8,
-    padding: '5px 10px',
+    padding: '8px 12px',
     marginBottom: 20,
   },
   logoText: {

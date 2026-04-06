@@ -169,17 +169,17 @@ export function Sidebar() {
             </svg>
           </button>
           {wide && (
-            <div className="flex flex-1 min-w-0 items-center justify-center gap-2.5 overflow-hidden">
-              <div className="min-w-0 text-center">
+            <div className="flex flex-1 min-w-0 items-center justify-start gap-3 overflow-hidden pl-0.5">
+              <div className="min-w-0 text-left">
                 <div className="text-white text-sm font-semibold leading-none truncate">Strova</div>
                 <div className="text-white/30 text-[10px] mt-0.5 truncate">Admin Panel</div>
               </div>
               <Image
                 src="/strova-logo.png"
                 alt="Strova"
-                width={28}
-                height={28}
-                className="h-7 w-7 shrink-0 object-contain"
+                width={44}
+                height={44}
+                className="h-11 w-11 shrink-0 object-contain -translate-x-0.5"
                 priority
               />
             </div>
