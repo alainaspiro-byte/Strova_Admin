@@ -15,10 +15,11 @@ export const metadata: Metadata = {
   title: 'Strova Admin · Suscripciones',
   description: 'Panel interno de gestión de suscripciones',
   /**
-   * Favicon: `app/icon.svg` (marca que llena el lienzo; se ve mejor en pestaña que un PNG con mucho margen).
-   * Apple / OG siguen con logo completo.
+   * Favicon (pestaña): `/icon.svg` en `public/icon.svg` — no usar `logo-claro.png` como favicon.
+   * Apple Touch y previews sociales siguen con el PNG completo.
    */
   icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml', sizes: 'any' }],
     apple: [{ url: '/logo-claro.png', sizes: '180x180', type: 'image/png' }],
   },
   openGraph: {

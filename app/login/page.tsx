@@ -67,15 +67,16 @@ function LoginPageContent() {
         <div style={styles.card} className="login-card">
           {/* Header */}
           <div style={styles.cardHeader}>
-            <div style={styles.logo}>
+            <div style={styles.brandBlock}>
               <img
                 src="/logo-oscuro.png"
                 alt="Strova"
-                width={56}
-                height={56}
-                style={{ objectFit: 'contain', width: 56, height: 56 }}
+                width={44}
+                height={44}
+                style={{ objectFit: 'contain', width: 44, height: 44, display: 'block' }}
               />
-              <span style={styles.logoText}>Strova Admin</span>
+              <span style={styles.brandTitle}>Strova</span>
+              <span style={styles.brandSubtitle}>Admin Panel</span>
             </div>
             <h1 style={styles.title}>Bienvenido</h1>
             <p style={styles.subtitle}>Inicia sesión para gestionar suscripciones</p>
@@ -214,22 +215,30 @@ const styles: Record<string, CSSProperties> = {
   cardHeader: {
     marginBottom: 28,
   },
-  logo: {
-    display: 'inline-flex',
+  brandBlock: {
+    display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 12,
-    background: 'rgba(59,130,246,0.1)',
-    border: '1px solid rgba(59,130,246,0.2)',
-    borderRadius: 8,
-    padding: '8px 12px',
+    textAlign: 'center',
     marginBottom: 20,
   },
-  logoText: {
-    fontSize: 12,
+  brandTitle: {
+    margin: 0,
+    marginTop: 12,
+    color: '#ffffff',
+    fontSize: 18,
     fontWeight: 600,
-    color: '#60a5fa',
-    letterSpacing: '0.05em',
+    lineHeight: 1.15,
+  },
+  brandSubtitle: {
+    margin: 0,
+    marginTop: 4,
+    color: '#6b8cbe',
+    fontSize: 12,
+    fontWeight: 500,
+    lineHeight: 1.15,
     textTransform: 'uppercase' as const,
+    letterSpacing: '0.14em',
   },
   title: {
     fontSize: 26,
@@ -261,10 +270,10 @@ const styles: Record<string, CSSProperties> = {
   input: {
     width: '100%',
     padding: '10px 14px',
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    color: '#f1f5f9',
+    background: 'rgba(255,255,255,0.08)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    color: '#6b7fa3',
     fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box' as const,
@@ -328,9 +337,30 @@ const css = `
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
 
+  /* Preflight / navegador suelen dejar el fondo blanco; forzar el color del diseño */
+  .login-input {
+    background-color: #232f45 !important;
+    border: 1px solid rgba(255,255,255,0.05) !important;
+    color: #6b7fa3 !important;
+    border-radius: 8px !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .login-input:-webkit-autofill,
+  .login-input:-webkit-autofill:hover,
+  .login-input:-webkit-autofill:focus {
+    -webkit-text-fill-color:rgb(229, 233, 240) !important;
+    box-shadow: 0 0 0 1000px #232f45 inset !important;
+    border: 1px solid rgb(7, 0, 59) !important;
+  }
   .login-input:focus {
     border-color: rgba(59,130,246,0.5) !important;
     box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important;
+  }
+  .login-input:focus:-webkit-autofill {
+    -webkit-text-fill-color: #6b7fa3 !important;
+    box-shadow: 0 0 0 1000px #232f45 inset, 0 0 0 3px rgba(59,130,246,0.12) !important;
+    border-color: rgb(0, 14, 35) !important;
   }
   .login-input::placeholder {
     color: #334155;
