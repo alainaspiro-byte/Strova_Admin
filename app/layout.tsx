@@ -15,19 +15,19 @@ export const metadata: Metadata = {
   title: 'Strova Admin · Suscripciones',
   description: 'Panel interno de gestión de suscripciones',
   icons: {
-    icon: [{ url: '/strova-logo.png', type: 'image/png' }],
-    apple: '/strova-logo.png',
+    icon: [{ url: '/logo-claro.png', type: 'image/png' }],
+    apple: '/logo-claro.png',
   },
   openGraph: {
     title: 'Strova Admin · Suscripciones',
     description: 'Panel interno de gestión de suscripciones',
-    images: ['/strova-logo.png'],
+    images: ['/logo-claro.png'],
   },
   twitter: {
     card: 'summary',
     title: 'Strova Admin · Suscripciones',
     description: 'Panel interno de gestión de suscripciones',
-    images: ['/strova-logo.png'],
+    images: ['/logo-claro.png'],
   },
 }
 

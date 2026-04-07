@@ -1,7 +1,6 @@
 'use client'
 
 import { FormEvent, useState, useEffect, Suspense } from 'react'
-import Image from 'next/image'
 import type { CSSProperties } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -69,12 +68,12 @@ function LoginPageContent() {
           {/* Header */}
           <div style={styles.cardHeader}>
             <div style={styles.logo}>
-              <Image
-                src="/strova-logo.png"
+              <img
+                src="/logo-oscuro.png"
                 alt="Strova"
-                width={48}
-                height={48}
-                style={{ objectFit: 'contain', width: 48, height: 48 }}
+                width={56}
+                height={56}
+                style={{ objectFit: 'contain', width: 56, height: 56 }}
               />
               <span style={styles.logoText}>Strova Admin</span>
             </div>

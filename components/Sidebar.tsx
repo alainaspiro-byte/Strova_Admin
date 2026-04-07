@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
@@ -150,47 +149,50 @@ export function Sidebar() {
           aria-hidden
         />
         <aside className="relative z-[60] flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#1a1c2c] border-r border-white/[0.08]">
-        <div
-          className={`flex items-center border-b border-white/[0.06] transition-[padding] duration-300 ease-out ${
-            wide
-              ? 'gap-0 justify-start pl-2 pr-2 py-3 pt-5 pb-4'
-              : 'justify-center px-2 py-3'
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-            aria-label={open ? 'Colapsar menú lateral' : 'Fijar menú lateral abierto'}
-            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg bg-[#1a2332] border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-[#1e2a3a] transition-all"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-            </svg>
-          </button>
+        <div className="flex min-h-[88px] min-w-0 items-stretch border-b border-white/[0.06] transition-[padding] duration-300 ease-out">
+          <div className="flex w-16 shrink-0 items-center justify-center py-4">
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              aria-label={open ? 'Colapsar menú lateral' : 'Fijar menú lateral abierto'}
+              className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg bg-[#1a2332] border border-white/[0.08] text-white/40 hover:text-white/80 hover:bg-[#1e2a3a] transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            </button>
+          </div>
           {wide && (
-            <div className="flex flex-1 min-w-0 items-center justify-start gap-3 overflow-hidden pl-0.5">
-              <div className="min-w-0 text-left">
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-3 overflow-hidden py-4 pr-2">
+              <div className="min-w-0 text-center">
                 <div className="text-white text-sm font-semibold leading-none truncate">Strova</div>
                 <div className="text-white/30 text-[10px] mt-0.5 truncate">Admin Panel</div>
               </div>
-              <Image
-                src="/strova-logo.png"
+              <img
+                src="/logo-oscuro.png"
                 alt="Strova"
-                width={44}
-                height={44}
-                className="h-11 w-11 shrink-0 object-contain -translate-x-0.5"
-                priority
+                width={52}
+                height={52}
+                className="h-[52px] w-[52px] shrink-0 object-contain"
               />
             </div>
           )}
         </div>
-        <nav className="flex-1 px-2 py-4 space-y-0.5 min-h-0 overflow-y-auto overflow-x-hidden">
-          {wide && (
-            <div className="text-[9px] font-semibold text-white/20 uppercase tracking-widest px-2 mb-2">
+        <nav className="flex-1 space-y-0.5 py-4 pl-0 pr-2 min-h-0 overflow-y-auto overflow-x-hidden">
+          <div
+            className="mb-2 flex min-h-[14px] min-w-0 items-center"
+            aria-hidden={!wide}
+          >
+            <div className="w-16 shrink-0" aria-hidden />
+            <div
+              className={`min-w-0 flex-1 px-2.5 text-[9px] font-semibold uppercase tracking-widest ${
+                wide ? 'text-white/20' : 'text-transparent'
+              }`}
+            >
               Gestion
             </div>
-          )}
+          </div>
           {NAV.map((item) => {
             const active = pathname === item.href
             return (
@@ -198,32 +200,36 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 title={!wide ? item.label : ''}
-                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors duration-200 ease-out ${
-                  wide ? 'justify-start' : 'justify-center'
-                } ${active ? 'bg-blue-500/15 text-blue-400 font-medium' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'}`}
+                className={`flex min-w-0 items-center gap-2.5 py-2 pr-2.5 rounded-lg text-sm transition-colors duration-200 ease-out ${
+                  active ? 'bg-blue-500/15 text-blue-400 font-medium' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                }`}
               >
-                <span className={`shrink-0 ${active ? 'text-blue-400' : 'text-white/30'}`}>{item.icon}</span>
+                <span
+                  className={`flex w-16 shrink-0 items-center justify-center ${active ? 'text-blue-400' : 'text-white/30'}`}
+                >
+                  {item.icon}
+                </span>
                 {wide && (
                   <>
-                    <span className="truncate">{item.label}</span>
-                    {active && <span className="ml-auto w-1 h-1 shrink-0 rounded-full bg-blue-400" />}
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {active && <span className="h-1 w-1 shrink-0 rounded-full bg-blue-400" />}
                   </>
                 )}
               </Link>
             )
           })}
         </nav>
-        <div className={`px-2 py-3 border-t border-white/[0.06] space-y-1 shrink-0`}>
-          <div
-            className={`flex items-center gap-2.5 px-1 transition-all duration-300 ease-out ${!wide ? 'justify-center' : ''}`}
-          >
-            <div className="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xs font-semibold shrink-0">
-              {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'A'}
+        <div className="space-y-1 border-t border-white/[0.06] py-3 pl-0 pr-2 shrink-0">
+          <div className="flex min-w-0 items-center gap-2.5 transition-all duration-300 ease-out">
+            <div className="flex w-16 shrink-0 justify-center">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-blue-500/30 bg-blue-500/20 text-xs font-semibold text-blue-400">
+                {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'A'}
+              </div>
             </div>
             {wide && (
               <div className="min-w-0 flex-1">
-                <div className="text-white/70 text-xs font-medium truncate">{user?.name || 'Admin'}</div>
-                <div className="text-white/25 text-[10px] truncate">{user?.email || 'Strova Team'}</div>
+                <div className="truncate text-xs font-medium text-white/70">{user?.name || 'Admin'}</div>
+                <div className="truncate text-[10px] text-white/25">{user?.email || 'Strova Team'}</div>
               </div>
             )}
           </div>
@@ -233,16 +239,18 @@ export function Sidebar() {
             onClick={handleLogout}
             disabled={loggingOut}
             title={!wide ? 'Cerrar sesión' : ''}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed ${wide ? 'justify-start' : 'justify-center'}`}
+            className="flex w-full min-w-0 items-center gap-2.5 rounded-lg py-2 pr-2.5 text-xs font-medium text-red-400/70 transition-all duration-150 hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
-              />
-            </svg>
+            <span className="flex w-16 shrink-0 justify-center">
+              <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
+                />
+              </svg>
+            </span>
             {wide && (loggingOut ? 'Cerrando…' : 'Cerrar sesión')}
           </button>
         </div>
