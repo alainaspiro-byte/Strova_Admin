@@ -14,9 +14,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'Strova Admin · Suscripciones',
   description: 'Panel interno de gestión de suscripciones',
+  /**
+   * Favicon: `app/icon.svg` (marca que llena el lienzo; se ve mejor en pestaña que un PNG con mucho margen).
+   * Apple / OG siguen con logo completo.
+   */
   icons: {
-    icon: [{ url: '/logo-claro.png', type: 'image/png' }],
-    apple: '/logo-claro.png',
+    apple: [{ url: '/logo-claro.png', sizes: '180x180', type: 'image/png' }],
   },
   openGraph: {
     title: 'Strova Admin · Suscripciones',
