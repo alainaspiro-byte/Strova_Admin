@@ -47,7 +47,7 @@ export function AnalyticsSection() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-slate-800 dark:text-white/80">Tráfico del sitio</h2>
-          <p className="text-xs text-slate-500 dark:text-white/30 mt-0.5">Strova · últimos 7 días · datos de ejemplo</p>
+          <p className="text-xs text-slate-500 dark:text-white/30 mt-0.5">TuCuadre · últimos 7 días · datos de ejemplo</p>
         </div>
         <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200/80 dark:bg-emerald-500/10 dark:border-emerald-500/20 rounded-lg px-3 py-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />

@@ -6,6 +6,7 @@ import { MOCK_SYSTEM_CONFIG } from '@/lib/data'
 import { SystemConfig } from '@/lib/types'
 import { apiClient, errorMessage } from '@/lib/api'
 import { extractPaginated } from '@/lib/mappers'
+import { WhatsAppTemplatesPanel } from '@/components/settings/WhatsAppTemplatesPanel'
 
 const tableShell =
   'bg-white dark:bg-[#1a2332] rounded-lg border border-slate-200 shadow-sm dark:border-white/[0.08] dark:shadow-none overflow-hidden'
@@ -46,8 +47,11 @@ const emptyForm: UserFormData = {
   roleId: '',
 }
 
+type SettingsSectionTab = 'general' | 'whatsapp'
+
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
+  const [sectionTab, setSectionTab] = useState<SettingsSectionTab>('general')
   const [mounted, setMounted] = useState(false)
   const [users, setUsers] = useState<ApiUser[]>([])
   const [roles, setRoles] = useState<ApiRole[]>([])
@@ -168,6 +172,37 @@ export default function SettingsPage() {
         <p className="text-slate-600 dark:text-white/60">Gestiona usuarios y configuraciones del sistema</p>
       </div>
 
+      <div
+        className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-white/[0.08]"
+        role="tablist"
+        aria-label="Secciones de configuración"
+      >
+        {(
+          [
+            { id: 'general' as const, label: 'General' },
+            { id: 'whatsapp' as const, label: 'Plantillas de WhatsApp' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={sectionTab === t.id}
+            onClick={() => setSectionTab(t.id)}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              sectionTab === t.id
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-white/[0.08] dark:text-white/80 dark:hover:bg-white/[0.12]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {sectionTab === 'whatsapp' ? (
+        <WhatsAppTemplatesPanel />
+      ) : (
       <div className="space-y-8">
         {/* Apariencia */}
         <div>
@@ -317,6 +352,7 @@ export default function SettingsPage() {
           </form>
         </div>
       </div>
+      )}
 
       {/* Modal de usuario */}
       {isUserModalOpen && (

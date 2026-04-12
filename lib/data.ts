@@ -288,7 +288,7 @@ export const MOCK_ADMINS: AdminUser[] = [
   {
     id: 'admin1',
     name: 'Admin User',
-    email: 'admin@strova.com',
+    email: 'admin@tucuadre.com',
     role: 'superadmin',
     createdAt: '2025-01-01',
   },

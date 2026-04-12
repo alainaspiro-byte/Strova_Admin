@@ -1,6 +1,6 @@
-# Strova Admin — Panel de Suscripciones 🚀
+# TuCuadre Admin — Panel de Suscripciones 🚀
 
-Panel standalone de administración de suscripciones para Strova.
+Panel standalone de administración de suscripciones para TuCuadre.
 
 **Completamente integrado con tu API REST** ✅
 
@@ -49,7 +49,7 @@ Usa credenciales de admin para iniciar sesión.
 ## 🏗️ Estructura del proyecto
 
 ```
-strova-subs/
+tucuadre-admin/
 ├── app/
 │   ├── layout.tsx              ← layout raíz con AuthProvider
 │   ├── page.tsx                ← dashboard con datos reales
@@ -177,7 +177,7 @@ npm run build
 npm start
 
 # Ejecutar con PM2 (recomendado)
-pm2 start npm --name "strova-admin" -- start
+pm2 start npm --name "tucuadre-admin" -- start
 pm2 save
 ```
 
@@ -245,4 +245,4 @@ Es muy seguro tener admin en un lugar separado de la web pública.
 
 ---
 
-Developed with ❤️ for Strova
+Developed with ❤️ for TuCuadre

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "welcome",
+    "name": "Bienvenida nuevo cliente",
+    "description": "Al registrarse",
+    "body": "¡Hola! {nombre} 👋 Vimos que te acabas de registrar en TuCuadre.\nMuchísimas gracias por la confianza. Estamos muy emocionados de tenerte con nosotros.\nSolo pasaba para decirte que, si tienes cualquier duda configurando tu inventario o cualquier otra cosa, puedes escribirnos por aquí mismo. Trataremos de atenderte lo antes posible para que tu negocio empiece a \"cuadrar\" desde hoy. 📈\n¡Mucho éxito!"
+  },
+  {
+    "id": "expiring_soon",
+    "name": "Suscripción por vencer",
+    "description": "Cuando quedan 7 días o menos",
+    "body": "Hola {nombre}, te recordamos desde TuCuadre que tu suscripción al plan {plan} vence el 📅 {fechaVencimiento} ({diasRestantes} días).\n\nPara renovarla y no perder el acceso a tu cuenta, contáctanos por aquí y coordinamos el pago."
+  },
+  {
+    "id": "new_request",
+    "name": "Solicitud de plan recibida",
+    "description": "Al recibir una nueva solicitud pendiente",
+    "body": "Hola {nombre}, hemos recibido tu solicitud de plan {plan} en TuCuadre.\nPara activar tu suscripción: \n1. Realiza el pago a la tarjeta ########## ($0000 pesos) Confirma al número 58499664\n2. Toma una captura de la transacción  y envíamela \n3. En cuanto confirme, tu cuenta quedará activa ✅ y te notifico\n\nGracias por elegirnos 🙌"
+  },
+  {
+    "id": "payment_reminder",
+    "name": "Recordatorio de pago",
+    "description": "Cuando una solicitud lleva mucho tiempo pendiente sin respuesta",
+    "body": "Hola {nombre}, te escribimos desde TuCuadre porque tenemos pendiente la confirmación de tu pago para el plan {plan}.\n\nCuando puedas, cuéntanos cómo quedó para activar tu cuenta lo antes posible."
+  },
+  {
+    "id": "expired",
+    "name": "Suscripción vencida",
+    "description": "Cuando una suscripción ya venció",
+    "body": "Hola {nombre}, tu suscripción al plan {plan} en TuCuadre venció el 📅 {fechaVencimiento}.\n\nPara seguir usando tu cuenta renuévala cuando quieras, estamos disponibles para coordinar el pago."
+  },
+  {
+    "id": "plan_changed",
+    "name": "Cambio de plan",
+    "description": "Al aprobar un cambio de plan",
+    "body": "Hola {nombre}, recibimos tu solicitud de cambio al plan {plan}.\nPara realizar el cambio:\n1. Realiza el pago a la tarjeta ########## ($0000 pesos) Confirma al número 58499664\n2. Toma una captura de la transacción  y envíamela \n3. En cuanto confirme, tu cuenta quedará activa ✅ y te notifico\n\nGracias por elegirnos 🙌\n"
+  },
+  {
+    "id": "rejected",
+    "name": "Solicitud rechazada",
+    "description": "Al rechazar una solicitud",
+    "body": "Hola {nombre}, lamentablemente no pudimos procesar tu solicitud para el plan {plan} en TuCuadre.\n\nSi crees que es un error o quieres intentarlo de nuevo, escríbenos y con gusto te ayudamos."
+  }
+]

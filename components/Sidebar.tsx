@@ -166,12 +166,12 @@ export function Sidebar() {
           {wide && (
             <div className="flex min-w-0 flex-1 items-center justify-center gap-3 overflow-hidden py-4 pr-2">
               <div className="min-w-0 text-center">
-                <div className="text-white text-sm font-semibold leading-none truncate">Strova</div>
+                <div className="text-white text-sm font-semibold leading-none truncate">TuCuadre</div>
                 <div className="text-white/30 text-[10px] mt-0.5 truncate">Admin Panel</div>
               </div>
               <img
-                src="/logo-oscuro.png"
-                alt="Strova"
+                src="/tucuadre-favicon.png"
+                alt="TuCuadre"
                 width={52}
                 height={52}
                 className="h-[52px] w-[52px] shrink-0 object-contain"
@@ -229,7 +229,7 @@ export function Sidebar() {
             {wide && (
               <div className="min-w-0 flex-1">
                 <div className="truncate text-xs font-medium text-white/70">{user?.name || 'Admin'}</div>
-                <div className="truncate text-[10px] text-white/25">{user?.email || 'Strova Team'}</div>
+                <div className="truncate text-[10px] text-white/25">{user?.email || 'TuCuadre Team'}</div>
               </div>
             )}
           </div>

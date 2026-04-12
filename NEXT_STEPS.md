@@ -1,4 +1,4 @@
-# 🚀 Próximos Pasos - Strova Admin Panel
+# 🚀 Próximos Pasos - TuCuadre Admin Panel
 
 Tu panel ya está **completamente integrado con la API**. Aquí está lo que debes hacer ahora:
 
@@ -7,7 +7,7 @@ Tu panel ya está **completamente integrado con la API**. Aquí está lo que deb
 ## 1️⃣ Test rápido en local (5 min)
 
 ```bash
-cd c:\Users\Alain\Desktop\strova-subs
+cd c:\Users\Alain\Desktop\tucuadre-admin
 
 # Instalar dependencias (si no lo hiciste)
 npm install
@@ -88,7 +88,7 @@ Si tu servidor soporta Docker.
 ### Paso 1: Actualizar `.env.local` para tu dominio
 
 ```bash
-# Edita c:\Users\Alain\Desktop\strova-subs\.env.local
+# Edita c:\Users\Alain\Desktop\tucuadre-admin\.env.local
 NEXT_PUBLIC_API_URL=https://api.tu-dominio.com/api
 NEXT_PUBLIC_APP_URL=https://admin.tu-dominio.com
 ```
@@ -142,7 +142,7 @@ Una vez que el checklist esté completo:
 4. **Deploy**:
    ```bash
    npm run build
-   pm2 start npm --name "strova-admin" -- start
+   pm2 start npm --name "tucuadre-admin" -- start
    ```
 5. **Verifica**: Accede a https://admin.tu-dominio.com/login
 

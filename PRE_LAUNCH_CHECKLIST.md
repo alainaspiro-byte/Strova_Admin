@@ -2,7 +2,7 @@
 
 Completa este checklist antes de desplegar a producción.
 
-## ✅ Backend / API (Strova)
+## ✅ Backend / API (TuCuadre)
 
 - [ ] **Endpoints implementados** según el mapeo:
   - [ ] `POST /auth/login` - Retorna `{ token, user }`
@@ -86,7 +86,7 @@ Completa este checklist antes de desplegar a producción.
 - [ ] **Proceso está corriendo**:
   ```bash
   npm run build
-  npm start  # o: pm2 start npm --name "strova-admin" -- start
+  npm start  # o: pm2 start npm --name "tucuadre-admin" -- start
   ```
 
 - [ ] **Acceso test**:

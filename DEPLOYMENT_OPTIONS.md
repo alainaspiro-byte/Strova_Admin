@@ -1,4 +1,4 @@
-# 🏗️ Arquitectura de Despliegue - Strova Admin Panel
+# 🏗️ Arquitectura de Despliegue - TuCuadre Admin Panel
 
 ## 📋 Opciones de despliegue en el mismo servidor
 
@@ -9,9 +9,9 @@ Tu web principal + Panel Admin pueden coexistir en el mismo servidor de varias f
 ## Opción 1: Subdominio separado (Recomendado)
 
 ```
-Tu web principal:  https://strova.com
-Panel Admin:       https://admin.strova.com
-API:               https://api.strova.com/api
+Tu web principal:  https://tucuadre.com
+Panel Admin:       https://admin.tucuadre.com
+API:               https://api.tucuadre.com/api
 ```
 
 ### Ventajas ✅
@@ -28,23 +28,23 @@ API:               https://api.strova.com/api
 
 #### Step 1: Crear el subdominio DNS
 ```
-admin.strova.com  →  192.168.1.100  (tu servidor)
+admin.tucuadre.com  →  192.168.1.100  (tu servidor)
 ```
 
 #### Step 2: SSL con Let's Encrypt
 ```bash
-certbot certonly --standalone -d admin.strova.com
+certbot certonly --standalone -d admin.tucuadre.com
 ```
 
 #### Step 3: Nginx - Configuración
 ```nginx
-# /etc/nginx/sites-available/admin.strova.com
+# /etc/nginx/sites-available/admin.tucuadre.com
 server {
     listen 443 ssl http2;
-    server_name admin.strova.com;
+    server_name admin.tucuadre.com;
 
-    ssl_certificate /etc/letsencrypt/live/admin.strova.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/admin.strova.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/admin.tucuadre.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/admin.tucuadre.com/privkey.pem;
 
     location / {
         proxy_pass http://localhost:3000;
@@ -61,15 +61,15 @@ server {
 # Redirigir HTTP → HTTPS
 server {
     listen 80;
-    server_name admin.strova.com;
+    server_name admin.tucuadre.com;
     return 301 https://$server_name$request_uri;
 }
 ```
 
 #### Step 4: Variables de entorno (`.env.local`)
 ```env
-NEXT_PUBLIC_API_URL=https://api.strova.com/api
-NEXT_PUBLIC_APP_URL=https://admin.strova.com
+NEXT_PUBLIC_API_URL=https://api.tucuadre.com/api
+NEXT_PUBLIC_APP_URL=https://admin.tucuadre.com
 ```
 
 ---
@@ -77,9 +77,9 @@ NEXT_PUBLIC_APP_URL=https://admin.strova.com
 ## Opción 2: Subpath en tu web principal
 
 ```
-Tu web principal:  https://strova.com
-Panel Admin:       https://strova.com/admin
-API:               https://strova.com/api
+Tu web principal:  https://tucuadre.com
+Panel Admin:       https://tucuadre.com/admin
+API:               https://tucuadre.com/api
 ```
 
 ### Ventajas ✅
@@ -108,7 +108,7 @@ module.exports = nextConfig
 
 #### Step 2: Nginx - Ruta al /admin
 ```nginx
-# /etc/nginx/sites-available/strova.com
+# /etc/nginx/sites-available/tucuadre.com
 location /admin/ {
     proxy_pass http://localhost:3000/admin/;
     proxy_set_header Host $host;
@@ -123,8 +123,8 @@ location /admin/ {
 
 #### Step 3: Variables de entorno
 ```env
-NEXT_PUBLIC_API_URL=https://strova.com/api
-NEXT_PUBLIC_APP_URL=https://strova.com/admin
+NEXT_PUBLIC_API_URL=https://tucuadre.com/api
+NEXT_PUBLIC_APP_URL=https://tucuadre.com/admin
 ```
 
 #### Step 4: Actualizar links en componentes
@@ -135,9 +135,9 @@ Si tu panel está en `/admin`, los links internos ya funcionan automáticamente 
 ## Opción 3: Mismo servidor pero puerto diferente
 
 ```
-Tu web principal:  http://strova.com (puerto 80/443)
-Panel Admin:       http://strova.com:3000
-API:               http://strova.com/api (puerto 80/443)
+Tu web principal:  http://tucuadre.com (puerto 80/443)
+Panel Admin:       http://tucuadre.com:3000
+API:               http://tucuadre.com/api (puerto 80/443)
 ```
 
 ### Ventajas ✅
@@ -181,8 +181,8 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      NEXT_PUBLIC_API_URL: https://api.strova.com/api
-      NEXT_PUBLIC_APP_URL: https://admin.strova.com
+      NEXT_PUBLIC_API_URL: https://api.tucuadre.com/api
+      NEXT_PUBLIC_APP_URL: https://admin.tucuadre.com
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -239,7 +239,7 @@ Tu API debe permitir requests desde el dominio del admin:
 ```javascript
 // Node.js/Express ejemplo
 app.use(cors({
-  origin: ['https://admin.strova.com', 'https://strova.com'],
+  origin: ['https://admin.tucuadre.com', 'https://tucuadre.com'],
   credentials: true,
 }))
 ```

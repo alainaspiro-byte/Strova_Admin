@@ -1,6 +1,6 @@
-# 🎯 Strova Suscripciones - Panel Admin
+# 🎯 TuCuadre Suscripciones - Panel Admin
 
-Panel standalone de administración de suscripciones para Strova.
+Panel standalone de administración de suscripciones para TuCuadre.
 
 ## 📦 Características
 
@@ -226,7 +226,7 @@ Access-Control-Allow-Credentials: true
 
 ## 📄 Licencia
 
-Privado - Strova
+Privado - TuCuadre
 
 ---
 

@@ -166,19 +166,19 @@ function buildWaMessage(sub: ApiSubscription): string {
   const end = formatDateLong(sub.endDate)
 
   if (sub.status === 'pending') {
-    return `Hola ${name}, te contactamos desde Strova para confirmar el pago de tu solicitud al plan ${plan} ($${monthly}/mes). Por favor confírmanos cuando hayas realizado el pago.`
+    return `Hola ${name}, te contactamos desde TuCuadre para confirmar el pago de tu solicitud al plan ${plan} ($${monthly}/mes). Por favor confírmanos cuando hayas realizado el pago.`
   }
   if (sub.status === 'active') {
-    return `Hola ${name}, tu suscripción al plan ${plan} en Strova vence el ${end}. ¿Deseas renovarla?`
+    return `Hola ${name}, tu suscripción al plan ${plan} en TuCuadre vence el ${end}. ¿Deseas renovarla?`
   }
   if (sub.status === 'expired') {
-    return `Hola ${name}, tu suscripción al plan ${plan} en Strova venció el ${end}. ¿Te gustaría renovarla?`
+    return `Hola ${name}, tu suscripción al plan ${plan} en TuCuadre venció el ${end}. ¿Te gustaría renovarla?`
   }
   if (sub.status === 'cancelled') {
-    return `Hola ${name}, tu suscripción al plan ${plan} en Strova está cancelada (vencía el ${end}). ¿Te gustaría renovarla?`
+    return `Hola ${name}, tu suscripción al plan ${plan} en TuCuadre está cancelada (vencía el ${end}). ¿Te gustaría renovarla?`
   }
   if (sub.status === 'rejected') {
-    return `Hola ${name}, te contactamos desde Strova sobre tu solicitud del plan ${plan}. Si quieres retomar el alta o aclarar algo, escríbenos.`
+    return `Hola ${name}, te contactamos desde TuCuadre sobre tu solicitud del plan ${plan}. Si quieres retomar el alta o aclarar algo, escríbenos.`
   }
   return ''
 }

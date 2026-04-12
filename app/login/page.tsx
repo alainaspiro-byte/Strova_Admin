@@ -69,13 +69,13 @@ function LoginPageContent() {
           <div style={styles.cardHeader}>
             <div style={styles.brandBlock}>
               <img
-                src="/logo-oscuro.png"
-                alt="Strova"
+                src="/tucuadre-favicon.png"
+                alt="TuCuadre"
                 width={44}
                 height={44}
                 style={{ objectFit: 'contain', width: 44, height: 44, display: 'block' }}
               />
-              <span style={styles.brandTitle}>Strova</span>
+              <span style={styles.brandTitle}>TuCuadre</span>
               <span style={styles.brandSubtitle}>Admin Panel</span>
             </div>
             <h1 style={styles.title}>Bienvenido</h1>
@@ -140,7 +140,7 @@ function LoginPageContent() {
             </button>
           </form>
 
-          <p style={styles.footer}>Panel de administración · Strova</p>
+          <p style={styles.footer}>Panel de administración · TuCuadre</p>
         </div>
       </div>
     </>

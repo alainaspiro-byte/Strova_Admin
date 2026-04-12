@@ -52,7 +52,7 @@ export interface Client {
   accountStatus: 'active' | 'inactive'
   createdAt: string
   subscriptions: Subscription[]
-  associatedStores: string[] // IDs de tiendas en Strova
+  associatedStores: string[] // IDs de tiendas en TuCuadre
 }
 
 /** Organización + admin (GET /api/organization) */
