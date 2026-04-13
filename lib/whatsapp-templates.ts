@@ -7,6 +7,21 @@ export interface WhatsAppMessageTemplate {
   body: string
 }
 
+/** Archivo estático en `public/` (Vercel / lectura en cliente vía `fetch`). */
+export const WHATSAPP_TEMPLATES_PUBLIC_URL = '/whatsapp-templates.json'
+
+export async function fetchWhatsAppTemplates(): Promise<WhatsAppMessageTemplate[]> {
+  const res = await fetch(WHATSAPP_TEMPLATES_PUBLIC_URL, { cache: 'no-store' })
+  if (!res.ok) {
+    throw new Error(`No se pudieron cargar las plantillas (${res.status})`)
+  }
+  const data = (await res.json()) as unknown
+  if (!Array.isArray(data)) {
+    throw new Error('whatsapp-templates.json debe ser un array')
+  }
+  return data as WhatsAppMessageTemplate[]
+}
+
 /** Placeholders soportados en el JSON (chips y sustitución). */
 export const WHATSAPP_TEMPLATE_VARIABLE_TOKENS = [
   '{nombre}',

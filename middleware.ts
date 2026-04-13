@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { ROLE_COOKIE_NAME, SUPERADMIN_ROLE_ID_VALUE } from './lib/authConstants'
 
-/** Rutas que sirven archivos desde `public/` (no pasan por el App Router). Sin esto, el middleware redirige a /login y el logo en /login no carga sin cookie. */
-const PUBLIC_FILE_EXT = /\.(?:png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot)$/i
+/** Rutas que sirven archivos desde `public/` (no pasan por el App Router). Sin esto, el middleware redirige a /login y el logo en /login no carga sin cookie. Incluye `json` para `/whatsapp-templates.json`. */
+const PUBLIC_FILE_EXT = /\.(?:png|jpe?g|gif|svg|webp|ico|json|woff2?|ttf|eot)$/i
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

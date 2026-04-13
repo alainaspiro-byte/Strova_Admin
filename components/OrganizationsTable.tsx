@@ -5,9 +5,9 @@ import { apiClient, errorMessage, isApiError } from '@/lib/api'
 import type { ApiSubscription } from '@/lib/subscriptionApiTypes'
 import type { ApiUserDetail, OrganizationEntity } from '@/lib/organizationApiTypes'
 import type { SubscriptionRequestRow } from '@/lib/mappers'
-import { readWhatsAppTemplates } from '@/app/actions/whatsapp-templates'
 import {
   applyWhatsappTemplateBodyForOrganizationDetail,
+  fetchWhatsAppTemplates,
   type WhatsAppMessageTemplate,
 } from '@/lib/whatsapp-templates'
 import { buildWhatsAppUrl } from '@/lib/whatsapp'
@@ -377,7 +377,7 @@ export function OrganizationsTable() {
     setWaTplSelected(null)
     setWaTplErr(null)
     setWaTplLoading(true)
-    readWhatsAppTemplates()
+    fetchWhatsAppTemplates()
       .then((list) => {
         setWaTplList(list)
       })

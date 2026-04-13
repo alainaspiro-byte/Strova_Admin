@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   WHATSAPP_TEMPLATE_VARIABLE_TOKENS,
+  fetchWhatsAppTemplates,
   previewTemplateBodyWithExamples,
   type WhatsAppMessageTemplate,
 } from '@/lib/whatsapp-templates'
-import { readWhatsAppTemplates, saveWhatsAppTemplates } from '@/app/actions/whatsapp-templates'
+import { saveWhatsAppTemplates } from '@/app/actions/whatsapp-templates'
+
+const templatesLocked = process.env.NODE_ENV === 'production'
 
 const inputClass =
   'w-full px-3 py-2 bg-white dark:bg-[#111827] border border-slate-300 dark:border-white/[0.08] rounded-lg text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500'
@@ -38,7 +41,7 @@ export function WhatsAppTemplatesPanel() {
     setLoading(true)
     setLoadError(null)
     try {
-      const list = await readWhatsAppTemplates()
+      const list = await fetchWhatsAppTemplates()
       setItems(list)
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'No se pudieron cargar las plantillas')
@@ -96,6 +99,7 @@ export function WhatsAppTemplatesPanel() {
   const previewLive = useMemo(() => previewTemplateBodyWithExamples(formBody), [formBody])
 
   const persist = async (next: WhatsAppMessageTemplate[]) => {
+    if (templatesLocked) return false
     setSaving(true)
     setSaveError(null)
     const res = await saveWhatsAppTemplates(next)
@@ -110,6 +114,7 @@ export function WhatsAppTemplatesPanel() {
 
   const handleSaveForm = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (templatesLocked) return
     const name = formName.trim()
     const description = formDescription.trim()
     const body = formBody
@@ -126,6 +131,7 @@ export function WhatsAppTemplatesPanel() {
   }
 
   const handleDelete = async (id: string) => {
+    if (templatesLocked) return
     if (!confirm('¿Eliminar esta plantilla?')) return
     const next = items.filter((x) => x.id !== id)
     await persist(next)
@@ -135,17 +141,36 @@ export function WhatsAppTemplatesPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-600 dark:text-white/50 max-w-xl">
-          Edita los mensajes predefinidos para WhatsApp. Los cambios se guardan en{' '}
-          <code className="text-xs text-slate-500 dark:text-white/40">src/data/whatsapp-templates.json</code>.
+          {templatesLocked ? (
+            <>
+              Plantillas servidas desde{' '}
+              <code className="text-xs text-slate-500 dark:text-white/40">public/whatsapp-templates.json</code> (solo
+              lectura en producción). Para cambiarlas, edita ese archivo en el repositorio y despliega de nuevo.
+            </>
+          ) : (
+            <>
+              Edita los mensajes predefinidos para WhatsApp. Al guardar se actualizan{' '}
+              <code className="text-xs text-slate-500 dark:text-white/40">public/whatsapp-templates.json</code> y{' '}
+              <code className="text-xs text-slate-500 dark:text-white/40">src/data/whatsapp-templates.json</code>.
+            </>
+          )}
         </p>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="shrink-0 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          Nueva plantilla
-        </button>
+        {!templatesLocked && (
+          <button
+            type="button"
+            onClick={openCreate}
+            className="shrink-0 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            Nueva plantilla
+          </button>
+        )}
       </div>
+
+      {templatesLocked && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200/90">
+          Modo producción: no se pueden crear, editar ni eliminar plantillas desde el panel.
+        </div>
+      )}
 
       {loadError && (
         <div className="px-4 py-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 text-sm flex flex-wrap items-center justify-between gap-2">
@@ -179,22 +204,24 @@ export function WhatsAppTemplatesPanel() {
                     {t.body}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2 sm:flex-col sm:items-end">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(t)}
-                    className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 font-medium"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(t.id)}
-                    className="text-sm text-red-600 hover:text-red-500 dark:text-red-400 font-medium"
-                  >
-                    Eliminar
-                  </button>
-                </div>
+                {!templatesLocked && (
+                  <div className="flex shrink-0 gap-2 sm:flex-col sm:items-end">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(t)}
+                      className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 font-medium"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(t.id)}
+                      className="text-sm text-red-600 hover:text-red-500 dark:text-red-400 font-medium"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -281,10 +308,10 @@ export function WhatsAppTemplatesPanel() {
               <div className="flex gap-2 pt-1">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || templatesLocked}
                   className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
                 >
-                  {saving ? 'Guardando…' : 'Guardar'}
+                  {templatesLocked ? 'Solo lectura' : saving ? 'Guardando…' : 'Guardar'}
                 </button>
                 <button
                   type="button"
