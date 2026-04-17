@@ -912,22 +912,13 @@ export class ApiClient {
 
   /**
    * GET detalle de usuario por id.
-   * Usa GET /user?id=… (mismo criterio que deleteUser); GET /user/{id} suele dar 405 en APIs .NET.
+   * GET /api/user/id?id=… (segmento literal `id` + query; alineado con Swagger).
    */
   async getUserById(userId: number): Promise<ApiUserDetail> {
     const query = this.buildQuery({ id: userId })
-    const raw = await this.request<unknown>(`/user${query}`)
-    const { items } = extractPaginated<unknown>(raw)
-    if (items.length >= 1) {
-      const match = items.find((row) => {
-        if (!row || typeof row !== 'object' || Array.isArray(row)) return false
-        const o = row as Record<string, unknown>
-        const id = Number(o.id ?? o.Id ?? 0)
-        return id === userId
-      })
-      return parseApiUser(match ?? items[0])
-    }
-    return parseApiUser(raw)
+    const raw = await this.request<unknown>(`/user/id${query}`)
+    const payload = unwrapApiEntity(raw) ?? raw
+    return parseApiUser(payload)
   }
 
   /** PUT /organization/verification — cuerpo { organizationId, isVerified }. */
