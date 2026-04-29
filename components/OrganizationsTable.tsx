@@ -443,7 +443,7 @@ export function OrganizationsTable() {
 
   const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase()
-    return organizations.filter((org) => {
+    const rows = organizations.filter((org) => {
       if (q && !org.name.toLowerCase().includes(q)) return false
       const sub = subscriptionMap.get(org.id)
       if (subscriptionFilter === 'none') {
@@ -457,6 +457,8 @@ export function OrganizationsTable() {
       if (verificationFilter === 'unverified' && org.isVerified) return false
       return true
     })
+    rows.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
+    return rows
   }, [organizations, subscriptionMap, debouncedSearch, subscriptionFilter, verificationFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))

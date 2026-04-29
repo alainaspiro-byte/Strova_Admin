@@ -183,20 +183,32 @@ function buildWaMessage(sub: ApiSubscription): string {
   return ''
 }
 
+/** Misma estrategia que `OrganizationsTable`: todas las páginas en memoria para filtrar/paginar en cliente. */
+async function fetchAllSubscriptionsLocal(): Promise<ApiSubscription[]> {
+  const first = await apiClient.getSubscriptionList({ page: 1, perPage: 500, status: 'all' })
+  const items = [...first.items]
+  const tp = first.pagination?.totalPages ?? 1
+  if (tp > 1) {
+    const rest = await Promise.all(
+      Array.from({ length: tp - 1 }, (_, i) =>
+        apiClient.getSubscriptionList({ page: i + 2, perPage: 500, status: 'all' })
+      )
+    )
+    for (const r of rest) items.push(...r.items)
+  }
+  return items
+}
+
 export function SubscriptionsTable() {
   const [tab, setTab] = useState<TabKey>('all')
   const [planId, setPlanId] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [items, setItems] = useState<ApiSubscription[]>([])
-  const [pagination, setPagination] = useState<import('@/lib/subscriptionApiTypes').SubscriptionPagination | null>(
-    null
-  )
+  const [allSubscriptions, setAllSubscriptions] = useState<ApiSubscription[]>([])
   const [requestMap, setRequestMap] = useState<Map<number, number>>(new Map())
   const [rejectedRequestMap, setRejectedRequestMap] = useState<Map<number, number>>(new Map())
   const [plans, setPlans] = useState<ApiPlan[]>([])
-  const [tabCounts, setTabCounts] = useState<Partial<Record<TabKey, number>>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
@@ -227,28 +239,17 @@ export function SubscriptionsTable() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const loadTabCounts = useCallback(async () => {
-    try {
-      const [all, pending, active, rejected, cancelled, expired] = await Promise.all([
-        apiClient.getSubscriptionList({ page: 1, perPage: 1, status: 'all' }).then((r) => r.pagination?.totalCount ?? 0),
-        apiClient.getSubscriptionStatusCount('pending'),
-        apiClient.getSubscriptionStatusCount('active'),
-        apiClient.getSubscriptionStatusCount('rejected'),
-        apiClient.getSubscriptionStatusCount('cancelled'),
-        apiClient.getSubscriptionStatusCount('expired'),
-      ])
-      setTabCounts({
-        all,
-        pending,
-        active,
-        rejected,
-        cancelled,
-        expired,
-      })
-    } catch {
-      /* conteos opcionales */
-    }
-  }, [])
+  const tabCounts = useMemo(() => {
+    const list = allSubscriptions
+    return {
+      all: list.length,
+      pending: list.filter((s) => s.status === 'pending').length,
+      active: list.filter((s) => s.status === 'active').length,
+      rejected: list.filter((s) => s.status === 'rejected').length,
+      cancelled: list.filter((s) => s.status === 'cancelled').length,
+      expired: list.filter((s) => s.status === 'expired').length,
+    } satisfies Record<TabKey, number>
+  }, [allSubscriptions])
 
   const loadPlans = useCallback(async () => {
     try {
@@ -263,36 +264,28 @@ export function SubscriptionsTable() {
     setLoading(true)
     setError(null)
     try {
-      const statusFilter =
-        tab === 'all' ? 'all' : (tab as ApiSubscriptionStatus)
-      const [listRes, mapPending, mapRejected] = await Promise.all([
-        apiClient.getSubscriptionList({
-          page,
-          perPage: PER_PAGE,
-          status: statusFilter,
-          planId: planId ?? undefined,
-        }),
+      const [subs, mapPending, mapRejected] = await Promise.all([
+        fetchAllSubscriptionsLocal(),
         apiClient.getPendingSubscriptionRequestMap(),
         apiClient.getRejectedSubscriptionRequestMap(),
       ])
-      setItems(listRes.items)
-      setPagination(listRes.pagination)
+      setAllSubscriptions(subs)
       setRequestMap(mapPending)
       setRejectedRequestMap(mapRejected)
+      setPage(1)
     } catch (e) {
       setError(
         isApiError(e) && e.status === 403
           ? 'Sin permisos'
           : errorMessage(e, 'Error al cargar datos')
       )
-      setItems([])
-      setPagination(null)
+      setAllSubscriptions([])
       setRequestMap(new Map())
       setRejectedRequestMap(new Map())
     } finally {
       setLoading(false)
     }
-  }, [tab, page, planId])
+  }, [])
 
   useEffect(() => {
     loadPlans()
@@ -302,15 +295,30 @@ export function SubscriptionsTable() {
     loadData()
   }, [loadData])
 
-  useEffect(() => {
-    loadTabCounts()
-  }, [loadTabCounts])
-
-  const filteredItems = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase()
-    if (!q) return items
-    return items.filter((s) => s.organization.name.toLowerCase().includes(q))
-  }, [items, debouncedSearch])
+    return allSubscriptions.filter((s) => {
+      if (tab !== 'all' && s.status !== tab) return false
+      if (planId != null && s.plan.id !== planId) return false
+      if (q) {
+        const name = s.organization.name.toLowerCase()
+        const code = s.organization.code.toLowerCase()
+        if (!name.includes(q) && !code.includes(q)) return false
+      }
+      return true
+    })
+  }, [allSubscriptions, tab, planId, debouncedSearch])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [page, totalPages])
+
+  const pageSlice = useMemo(() => {
+    const start = (page - 1) * PER_PAGE
+    return filtered.slice(start, start + PER_PAGE)
+  }, [filtered, page])
 
   const closeModal = () => {
     setModal('none')
@@ -329,7 +337,6 @@ export function SubscriptionsTable() {
       showToast('ok', successMsg)
       closeModal()
       await loadData()
-      await loadTabCounts()
     } catch (e) {
       showToast('err', errorMessage(e, 'Error'))
     } finally {
@@ -383,8 +390,8 @@ export function SubscriptionsTable() {
     setModal('cancel')
   }
 
-  const totalCount = pagination?.totalCount ?? 0
-  const currentPage = pagination?.currentPage ?? page
+  const start = filtered.length === 0 ? 0 : (page - 1) * PER_PAGE + 1
+  const end = Math.min(page * PER_PAGE, filtered.length)
 
   /** Id de solicitud para aprobar: pendientes desde cola pending; rechazadas desde cola rejected (re-aprobación). */
   const resolveRequestIdForApprove = (sub: ApiSubscription) =>
@@ -392,7 +399,7 @@ export function SubscriptionsTable() {
       ? rejectedRequestMap.get(sub.id) ?? requestMap.get(sub.id)
       : requestMap.get(sub.id)
 
-  const emptyMessage = () => {
+  const emptyLabel = useMemo(() => {
     if (debouncedSearch.trim()) return 'No hay resultados para tu búsqueda'
     switch (tab) {
       case 'pending':
@@ -408,7 +415,7 @@ export function SubscriptionsTable() {
       default:
         return 'No hay suscripciones'
     }
-  }
+  }, [debouncedSearch, tab])
 
   return (
     <div className="space-y-3">
@@ -440,7 +447,7 @@ export function SubscriptionsTable() {
               >
                 {t.label}
                 <span className="ml-1.5 tabular-nums text-slate-400 dark:text-white/25">
-                  ({tabCounts[t.key] ?? '—'})
+                  ({loading ? '—' : tabCounts[t.key]})
                 </span>
               </button>
             ))}
@@ -524,14 +531,14 @@ export function SubscriptionsTable() {
                     </td>
                   </tr>
                 ))
-              ) : filteredItems.length === 0 ? (
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td className="px-4 py-16 text-center text-sm text-slate-400 dark:text-white/20" colSpan={6}>
-                    {emptyMessage()}
+                    {emptyLabel}
                   </td>
                 </tr>
               ) : (
-                filteredItems.map((sub) => {
+                pageSlice.map((sub) => {
                   const reqId =
                     sub.status === 'rejected'
                       ? resolveRequestIdForApprove(sub)
@@ -610,19 +617,15 @@ export function SubscriptionsTable() {
           </table>
         </div>
 
-        {!loading && pagination && totalCount > 0 && (
+        {!loading && filtered.length > 0 && (
           <div className="px-4 py-2.5 border-t border-slate-200 dark:border-white/[0.04] flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-slate-400 dark:text-white/20">
-              Mostrando
-              {filteredItems.length === 0
-                ? ' 0 '
-                : ` ${(currentPage - 1) * (pagination.pageSize || PER_PAGE) + 1}–${(currentPage - 1) * (pagination.pageSize || PER_PAGE) + filteredItems.length} `}
-              de {totalCount} suscripciones
+              Mostrando {start}–{end} de {filtered.length} suscripciones
             </span>
             <div className="flex gap-2">
               <button
                 type="button"
-                disabled={!pagination.hasPreviousPage}
+                disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 className="px-3 py-1 text-xs rounded-lg border border-slate-200 dark:border-white/[0.08] disabled:opacity-40"
               >
@@ -630,8 +633,8 @@ export function SubscriptionsTable() {
               </button>
               <button
                 type="button"
-                disabled={!pagination.hasNextPage}
-                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 className="px-3 py-1 text-xs rounded-lg border border-slate-200 dark:border-white/[0.08] disabled:opacity-40"
               >
                 Siguiente
