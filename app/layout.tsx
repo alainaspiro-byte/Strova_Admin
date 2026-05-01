@@ -3,6 +3,7 @@ import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { AppShell } from '@/components/AppShell'
+import { QueryProvider } from '@/components/QueryProvider'
 
 const siteUrl =
   (typeof process.env.NEXT_PUBLIC_SITE_URL === 'string' && process.env.NEXT_PUBLIC_SITE_URL.trim()) ||
@@ -38,7 +39,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="flex min-h-screen">
         <ThemeProvider>
           <AuthProvider>
-            <AppShell>{children}</AppShell>
+            <QueryProvider>
+              <AppShell>{children}</AppShell>
+            </QueryProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

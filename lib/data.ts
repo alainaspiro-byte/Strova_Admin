@@ -1,4 +1,4 @@
-import { Subscription, SubscriptionStats, Client, SubscriptionPlan, PaymentLog, AdminUser, SystemConfig } from './types'
+import { Subscription, SubscriptionStats, Client, SubscriptionPlan, AdminUser, SystemConfig } from './types'
 
 // ─── CAMBIA ESTO POR EL NÚMERO REAL DE WHATSAPP ──────────────────
 export const WHATSAPP_NUMBER = '5355555555'
@@ -258,29 +258,6 @@ export const MOCK_PLANS: SubscriptionPlan[] = [
     createdAt: '2025-01-01',
     updatedAt: '2025-01-01',
     priceHistory: [{ price: 60, date: '2025-01-01' }],
-  },
-]
-
-export const MOCK_PAYMENT_LOGS: PaymentLog[] = [
-  {
-    id: '1',
-    subscriptionId: '1',
-    clientName: 'Carlos Rodríguez',
-    amount: 25,
-    date: '2025-03-15',
-    paymentMethod: 'cash',
-    adminId: 'admin1',
-    adminName: 'Admin User',
-  },
-  {
-    id: '2',
-    subscriptionId: '4',
-    clientName: 'José Martínez',
-    amount: 25,
-    date: '2025-03-22',
-    paymentMethod: 'transfer',
-    adminId: 'admin1',
-    adminName: 'Admin User',
   },
 ]
 

@@ -33,6 +33,23 @@ import type {
 import type { ApiUserDetail, OrganizationEntity } from './organizationApiTypes'
 import { parseOrganization } from './parseOrganization'
 import { parseApiUser } from './parseApiUser'
+import { isTreasuryMockEnabled } from './treasuryMock'
+import {
+  periodToDateRange,
+  type CreateExpenseInput as CreateTreasuryExpenseInput,
+  type CreateIncomeInput as CreateTreasuryIncomeInput,
+  type PeriodFilter as TreasuryPeriodFilter,
+  type TreasuryExpense as TreasuryExpenseRecord,
+  type TreasuryIncome as TreasuryIncomeRecord,
+  type TreasurySummary as TreasurySummaryRecord,
+  type UpdateExpenseInput as UpdateTreasuryExpenseInput,
+  type UpdateIncomeInput as UpdateTreasuryIncomeInput,
+} from './treasuryTypes'
+
+interface TreasuryListResponse<T> {
+  items: T[]
+  total: number
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://unequivocally-shrinelike-zara.ngrok-free.dev/api'
 
@@ -945,6 +962,106 @@ export class ApiClient {
       for (const r of rest) items.push(...r.items)
     }
     return items
+  }
+
+  // ─── Tesorería ────────────────────────────────────────────────────────────
+  // Cuando NEXT_PUBLIC_TREASURY_MOCK==='true', se delega al store en memoria
+  // de lib/treasuryMock.ts. Cuando esté listo el backend, basta con ponerlo
+  // en 'false' (o quitar la variable) y se usan los endpoints reales.
+
+  async getTreasuryIncomes(period: TreasuryPeriodFilter): Promise<TreasuryListResponse<TreasuryIncomeRecord>> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.listIncomes(period)
+    }
+    const { from, to } = periodToDateRange(period)
+    return this.request<TreasuryListResponse<TreasuryIncomeRecord>>(
+      `/treasury/incomes?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    )
+  }
+
+  async createTreasuryIncome(input: CreateTreasuryIncomeInput): Promise<TreasuryIncomeRecord> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.createIncome(input)
+    }
+    return this.request<TreasuryIncomeRecord>('/treasury/incomes', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  /** El backend definira el verbo final (PUT/PATCH); de momento usamos PUT estandar. */
+  async updateTreasuryIncome(id: string, input: UpdateTreasuryIncomeInput): Promise<TreasuryIncomeRecord> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.updateIncome(id, input)
+    }
+    return this.request<TreasuryIncomeRecord>(`/treasury/incomes/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async deleteTreasuryIncome(id: string): Promise<void> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.deleteIncome(id)
+    }
+    await this.request<void>(`/treasury/incomes/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
+  async getTreasuryExpenses(period: TreasuryPeriodFilter): Promise<TreasuryListResponse<TreasuryExpenseRecord>> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.listExpenses(period)
+    }
+    const { from, to } = periodToDateRange(period)
+    return this.request<TreasuryListResponse<TreasuryExpenseRecord>>(
+      `/treasury/expenses?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    )
+  }
+
+  async createTreasuryExpense(input: CreateTreasuryExpenseInput): Promise<TreasuryExpenseRecord> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.createExpense(input)
+    }
+    return this.request<TreasuryExpenseRecord>('/treasury/expenses', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async updateTreasuryExpense(id: string, input: UpdateTreasuryExpenseInput): Promise<TreasuryExpenseRecord> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.updateExpense(id, input)
+    }
+    return this.request<TreasuryExpenseRecord>(`/treasury/expenses/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    })
+  }
+
+  async deleteTreasuryExpense(id: string): Promise<void> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.deleteExpense(id)
+    }
+    await this.request<void>(`/treasury/expenses/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
+  async getTreasurySummary(period: TreasuryPeriodFilter): Promise<TreasurySummaryRecord> {
+    if (isTreasuryMockEnabled()) {
+      const { treasuryMock } = await import('./treasuryMock')
+      return treasuryMock.getSummary(period)
+    }
+    const yyyy = period.year
+    const mm = String(period.month).padStart(2, '0')
+    return this.request<TreasurySummaryRecord>(
+      `/treasury/summary?year=${yyyy}&month=${mm}`,
+    )
   }
 }
 

@@ -92,17 +92,6 @@ export interface SubscriptionPlan {
   isActive?: boolean
 }
 
-export interface PaymentLog {
-  id: string
-  subscriptionId: string
-  clientName: string
-  amount: number
-  date: string
-  paymentMethod: PaymentMethod
-  adminId: string
-  adminName: string
-}
-
 export interface AdminUser {
   id: string
   name: string
